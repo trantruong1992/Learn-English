@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>English Learning App</title>
+  <style>
+    body { font-family: Arial; padding: 16px; max-width: 720px; margin: auto; }
+    input, textarea, select, button {
+      width: 100%; margin: 6px 0; padding: 8px;
+    }
+    .card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+    .en { color: #0077cc; margin-top: 6px; display: none; }
+    .row { display: flex; gap: 6px; }
+    .row button { flex: 1; }
+    .toolbar { display: flex; gap: 6px; margin-bottom: 10px; }
+    .toolbar button { flex: 1; }
+  </style>
+</head>
+<body>
+
+<h2>📘 English Learning App</h2>
+
+<div class="toolbar">
+  <button onclick="exportData()">📤 Xuất bài học</button>
+  <button onclick="importData()">📥 Nhập bài học</button>
+</div>
+
+<h3>➕ / ✏️ Thêm – Sửa câu</h3>
+
+<input id="structureInput" placeholder="Cấu trúc (VD: There is / There are)" />
+<input id="groupInput" placeholder="Nhóm (VD: Trong nhà)" />
+<textarea id="viInput" placeholder="Câu tiếng Việt"></textarea>
+<textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
+
+<button onclick="saveSentence()">💾 Lưu câu</button>
+<button onclick="cancelEdit()" id="cancelBtn" style="display:none;">❌ Huỷ sửa</button>
+
+<hr>
+
+<h3>📂 Ôn tập</h3>
+
+<select id="structureFilter" onchange="updateGroups()"></select>
+<select id="groupFilter" onchange="renderList()"></select>
+
+<div id="list"></div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" />
+
+<script>
+const STORAGE_KEY = "english_sentences";
+let editIndex = null;
+
+function getData() {
+  return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function saveSentence() {
+  const structure = structureInput.value.trim();
+  const group = groupInput.value.trim();
+  const vi = viInput.value.trim();
+  const en = enInput.value.trim();
+
+  if (!structure || !group || !vi || !en) {
+    alert("Nhập đầy đủ thông tin");
+    return;
+  }
+
+  const data = getData();
+
+  if (editIndex !== null) {
+    data[editIndex] = { structure, group, vi, en };
+    editIndex = null;
+    cancelBtn.style.display = "none";
+  } else {
+    data.push({ structure, group, vi, en });
+  }
+
+  saveData(data);
+  viInput.value = "";
+  enInput.value = "";
+
+  loadFilters();
+  renderList();
+}
+
+function cancelEdit() {
+  editIndex = null;
+  viInput.value = "";
+  enInput.value = "";
+  cancelBtn.style.display = "none";
+}
+
+function loadFilters() {
+  const data = getData();
+  const structures = [...new Set(data.map(s => s.structure))];
+
+  structureFilter.innerHTML = `<option value="">-- Tất cả cấu trúc --</option>`;
+  structures.forEach(s => {
+    structureFilter.innerHTML += `<option value="${s}">${s}</option>`;
+  });
+
+  groupFilter.innerHTML = `<option value="">-- Tất cả nhóm --</option>`;
+}
+
+function updateGroups() {
+  const data = getData();
+  const structure = structureFilter.value;
+  const groups = [...new Set(
+    data.filter(s => !structure || s.structure === structure)
+        .map(s => s.group)
+  )];
+
+  groupFilter.innerHTML = `<option value="">-- Tất cả nhóm --</option>`;
+  groups.forEach(g => {
+    groupFilter.innerHTML += `<option value="${g}">${g}</option>`;
+  });
+
+  renderList();
+}
+
+function speak(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  speechSynthesis.speak(u);
+}
+
+function editSentence(index) {
+  const s = getData()[index];
+  structureInput.value = s.structure;
+  groupInput.value = s.group;
+  viInput.value = s.vi;
+  enInput.value = s.en;
+  editIndex = index;
+  cancelBtn.style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function deleteSentence(index) {
+  if (!confirm("Xoá câu này?")) return;
+  const data = getData();
+  data.splice(index, 1);
+  saveData(data);
+  loadFilters();
+  renderList();
+}
+
+function renderList() {
+  const data = getData();
+  const structure = structureFilter.value;
+  const group = groupFilter.value;
+
+  list.innerHTML = "";
+
+  data.forEach((s, i) => {
+    if (
+      (structure && s.structure !== structure) ||
+      (group && s.group !== group)
+    ) return;
+
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
+      <b>${s.vi}</b>
+      <div class="row">
+        <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
+        <button onclick="editSentence(${i})">✏️ Sửa</button>
+        <button onclick="deleteSentence(${i})">🗑 Xoá</button>
+      </div>
+      <button onclick="toggleEn(${i})">👁 Hiện / Ẩn EN</button>
+      <div class="en" id="en-${i}">${s.en}</div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function toggleEn(i) {
+  const el = document.getElementById("en-" + i);
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+/* ===== XUẤT / NHẬP ===== */
+
+function exportData() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (!data) {
+    alert("Không có dữ liệu để xuất");
+    return;
+  }
+  const blob = new Blob([data], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "english_sentences.json";
+  a.click();
+}
+
+function importData() {
+  fileInput.click();
+}
+
+fileInput.addEventListener("change", function () {
+  const file = this.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      const json = JSON.parse(e.target.result);
+      if (!Array.isArray(json)) throw "Sai định dạng";
+      if (!confirm("Nhập dữ liệu sẽ ghi đè dữ liệu hiện tại. Tiếp tục?")) return;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
+      loadFilters();
+      renderList();
+      alert("Nhập dữ liệu thành công");
+    } catch {
+      alert("File không hợp lệ");
+    }
+  };
+  reader.readAsText(file);
+});
+
+loadFilters();
+renderList();
+</script>
+
+</body>
+</html>
