@@ -26,9 +26,7 @@
       margin-bottom: 10px;
     }
 
-    .toolbar button {
-      flex: 1;
-    }
+    .toolbar button { flex: 1; }
 
     .card {
       border: 1px solid #ccc;
@@ -43,18 +41,11 @@
       margin-top: 6px;
     }
 
-    .row button {
-      flex: 1;
-    }
+    .row button { flex: 1; }
 
     .en {
-      display: none;
       color: #0077cc;
       margin-top: 6px;
-    }
-
-    .en.show {
-      display: block;
     }
 
     #searchInput {
@@ -109,17 +100,14 @@ const STORAGE_KEY = "english_sentences";
 let editIndex = null;
 
 /* ===== DATA ===== */
-
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
-
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 /* ===== CRUD ===== */
-
 function saveSentence() {
   const structure = structureInput.value.trim();
   const group = groupInput.value.trim();
@@ -149,13 +137,13 @@ function saveSentence() {
   renderList();
 }
 
-function editSentence(index) {
-  const s = getData()[index];
+function editSentence(i) {
+  const s = getData()[i];
   structureInput.value = s.structure;
   groupInput.value = s.group;
   viInput.value = s.vi;
   enInput.value = s.en;
-  editIndex = index;
+  editIndex = i;
   cancelBtn.style.display = "block";
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -167,48 +155,37 @@ function cancelEdit() {
   cancelBtn.style.display = "none";
 }
 
-function deleteSentence(index) {
+function deleteSentence(i) {
   if (!confirm("Xoá câu này?")) return;
   const data = getData();
-  data.splice(index, 1);
+  data.splice(i, 1);
   saveData(data);
   loadFilters();
   renderList();
 }
 
 /* ===== FILTER ===== */
-
 function loadFilters() {
   const data = getData();
   const structures = [...new Set(data.map(s => s.structure))];
-
   structureFilter.innerHTML = `<option value="">-- Tất cả cấu trúc --</option>`;
-  structures.forEach(s => {
-    structureFilter.innerHTML += `<option value="${s}">${s}</option>`;
-  });
-
+  structures.forEach(s => structureFilter.innerHTML += `<option>${s}</option>`);
   groupFilter.innerHTML = `<option value="">-- Tất cả nhóm --</option>`;
 }
 
 function updateGroups() {
   const data = getData();
   const structure = structureFilter.value;
-
   const groups = [...new Set(
     data.filter(s => !structure || s.structure === structure)
         .map(s => s.group)
   )];
-
   groupFilter.innerHTML = `<option value="">-- Tất cả nhóm --</option>`;
-  groups.forEach(g => {
-    groupFilter.innerHTML += `<option value="${g}">${g}</option>`;
-  });
-
+  groups.forEach(g => groupFilter.innerHTML += `<option>${g}</option>`);
   renderList();
 }
 
-/* ===== RENDER + SEARCH ===== */
-
+/* ===== RENDER ===== */
 function renderList() {
   const data = getData();
   const structure = structureFilter.value;
@@ -218,7 +195,6 @@ function renderList() {
   list.innerHTML = "";
 
   data.forEach((s, i) => {
-
     if (
       keyword &&
       !(
@@ -229,10 +205,8 @@ function renderList() {
       )
     ) return;
 
-    if (
-      (structure && s.structure !== structure) ||
-      (group && s.group !== group)
-    ) return;
+    if ((structure && s.structure !== structure) ||
+        (group && s.group !== group)) return;
 
     const div = document.createElement("div");
     div.className = "card";
@@ -240,21 +214,20 @@ function renderList() {
       <b>${s.vi}</b>
       <div class="row">
         <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
-        <button onclick="toggleEn(${i})">👁 Hiện / Ẩn EN</button>
         <button onclick="editSentence(${i})">✏️ Sửa</button>
         <button onclick="deleteSentence(${i})">🗑 Xoá</button>
       </div>
-      <div class="en" id="en-${i}">${s.en}</div>
+      <button onclick="toggleEn(${i})">👁 Hiện / Ẩn EN</button>
+      <div class="en" id="en-${i}" hidden>${s.en}</div>
     `;
     list.appendChild(div);
   });
 }
 
 /* ===== UTILS ===== */
-
 function toggleEn(i) {
   const el = document.getElementById("en-" + i);
-  el.classList.toggle("show");
+  el.hidden = !el.hidden;
 }
 
 function speak(text) {
@@ -264,13 +237,9 @@ function speak(text) {
 }
 
 /* ===== IMPORT / EXPORT ===== */
-
 function exportData() {
   const data = localStorage.getItem(STORAGE_KEY);
-  if (!data) {
-    alert("Không có dữ liệu để xuất");
-    return;
-  }
+  if (!data) return alert("Không có dữ liệu");
   const blob = new Blob([data], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -278,24 +247,20 @@ function exportData() {
   a.click();
 }
 
-function importData() {
-  fileInput.click();
-}
+function importData() { fileInput.click(); }
 
 fileInput.addEventListener("change", function () {
   const file = this.files[0];
   if (!file) return;
-
   const reader = new FileReader();
-  reader.onload = function (e) {
+  reader.onload = e => {
     try {
       const json = JSON.parse(e.target.result);
       if (!Array.isArray(json)) throw "";
-      if (!confirm("Nhập dữ liệu sẽ ghi đè dữ liệu hiện tại. Tiếp tục?")) return;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
+      if (!confirm("Ghi đè dữ liệu?")) return;
+      saveData(json);
       loadFilters();
       renderList();
-      alert("Nhập dữ liệu thành công");
     } catch {
       alert("File không hợp lệ");
     }
@@ -303,8 +268,7 @@ fileInput.addEventListener("change", function () {
   reader.readAsText(file);
 });
 
-/* ===== INIT ===== */
-
+/* INIT */
 loadFilters();
 renderList();
 </script>
