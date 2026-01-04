@@ -4,24 +4,65 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>English Learning App</title>
+
   <style>
-    body { font-family: Arial; padding: 16px; max-width: 720px; margin: auto; }
-    input, textarea, select, button {
-      width: 100%; margin: 6px 0; padding: 8px;
+    body {
+      font-family: Arial;
+      padding: 16px;
+      max-width: 720px;
+      margin: auto;
     }
+
+    input, textarea, select, button {
+      width: 100%;
+      margin: 6px 0;
+      padding: 8px;
+      font-size: 15px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .toolbar button {
+      flex: 1;
+    }
+
     .card {
       border: 1px solid #ccc;
       padding: 10px;
       margin-top: 10px;
       border-radius: 6px;
     }
-    .en { color: #0077cc; margin-top: 6px; display: none; }
-    .row { display: flex; gap: 6px; }
-    .row button { flex: 1; }
-    .toolbar { display: flex; gap: 6px; margin-bottom: 10px; }
-    .toolbar button { flex: 1; }
+
+    .row {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .row button {
+      flex: 1;
+    }
+
+    .en {
+      color: #0077cc;
+      margin-top: 6px;
+      display: none;
+    }
+
+    #searchInput {
+      padding: 10px;
+      margin: 12px 0;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
+
 <body>
 
 <h2>📘 English Learning App</h2>
@@ -45,6 +86,13 @@
 
 <h3>📂 Ôn tập</h3>
 
+<input
+  type="text"
+  id="searchInput"
+  placeholder="🔍 Tìm câu (Việt / Anh / cấu trúc / nhóm)"
+  oninput="renderList()"
+/>
+
 <select id="structureFilter" onchange="updateGroups()"></select>
 <select id="groupFilter" onchange="renderList()"></select>
 
@@ -56,6 +104,8 @@
 const STORAGE_KEY = "english_sentences";
 let editIndex = null;
 
+/* ===== DATA ===== */
+
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
@@ -63,6 +113,8 @@ function getData() {
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
+
+/* ===== CRUD ===== */
 
 function saveSentence() {
   const structure = structureInput.value.trim();
@@ -93,12 +145,34 @@ function saveSentence() {
   renderList();
 }
 
+function editSentence(index) {
+  const s = getData()[index];
+  structureInput.value = s.structure;
+  groupInput.value = s.group;
+  viInput.value = s.vi;
+  enInput.value = s.en;
+  editIndex = index;
+  cancelBtn.style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function cancelEdit() {
   editIndex = null;
   viInput.value = "";
   enInput.value = "";
   cancelBtn.style.display = "none";
 }
+
+function deleteSentence(index) {
+  if (!confirm("Xoá câu này?")) return;
+  const data = getData();
+  data.splice(index, 1);
+  saveData(data);
+  loadFilters();
+  renderList();
+}
+
+/* ===== FILTER ===== */
 
 function loadFilters() {
   const data = getData();
@@ -115,6 +189,7 @@ function loadFilters() {
 function updateGroups() {
   const data = getData();
   const structure = structureFilter.value;
+
   const groups = [...new Set(
     data.filter(s => !structure || s.structure === structure)
         .map(s => s.group)
@@ -128,40 +203,28 @@ function updateGroups() {
   renderList();
 }
 
-function speak(text) {
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  speechSynthesis.speak(u);
-}
-
-function editSentence(index) {
-  const s = getData()[index];
-  structureInput.value = s.structure;
-  groupInput.value = s.group;
-  viInput.value = s.vi;
-  enInput.value = s.en;
-  editIndex = index;
-  cancelBtn.style.display = "block";
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function deleteSentence(index) {
-  if (!confirm("Xoá câu này?")) return;
-  const data = getData();
-  data.splice(index, 1);
-  saveData(data);
-  loadFilters();
-  renderList();
-}
+/* ===== RENDER + SEARCH ===== */
 
 function renderList() {
   const data = getData();
   const structure = structureFilter.value;
   const group = groupFilter.value;
+  const keyword = searchInput.value.toLowerCase();
 
   list.innerHTML = "";
 
   data.forEach((s, i) => {
+
+    if (
+      keyword &&
+      !(
+        s.vi.toLowerCase().includes(keyword) ||
+        s.en.toLowerCase().includes(keyword) ||
+        s.structure.toLowerCase().includes(keyword) ||
+        s.group.toLowerCase().includes(keyword)
+      )
+    ) return;
+
     if (
       (structure && s.structure !== structure) ||
       (group && s.group !== group)
@@ -183,12 +246,20 @@ function renderList() {
   });
 }
 
+/* ===== UTILS ===== */
+
 function toggleEn(i) {
   const el = document.getElementById("en-" + i);
   el.style.display = el.style.display === "none" ? "block" : "none";
 }
 
-/* ===== XUẤT / NHẬP ===== */
+function speak(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  speechSynthesis.speak(u);
+}
+
+/* ===== IMPORT / EXPORT ===== */
 
 function exportData() {
   const data = localStorage.getItem(STORAGE_KEY);
@@ -215,7 +286,7 @@ fileInput.addEventListener("change", function () {
   reader.onload = function (e) {
     try {
       const json = JSON.parse(e.target.result);
-      if (!Array.isArray(json)) throw "Sai định dạng";
+      if (!Array.isArray(json)) throw "";
       if (!confirm("Nhập dữ liệu sẽ ghi đè dữ liệu hiện tại. Tiếp tục?")) return;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
       loadFilters();
@@ -227,6 +298,8 @@ fileInput.addEventListener("change", function () {
   };
   reader.readAsText(file);
 });
+
+/* ===== INIT ===== */
 
 loadFilters();
 renderList();
