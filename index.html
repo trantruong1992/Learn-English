@@ -48,9 +48,13 @@
     }
 
     .en {
+      display: none;
       color: #0077cc;
       margin-top: 6px;
-      display: none;
+    }
+
+    .en.show {
+      display: block;
     }
 
     #searchInput {
@@ -250,7 +254,7 @@ function renderList() {
 
 function toggleEn(i) {
   const el = document.getElementById("en-" + i);
-  el.style.display = el.style.display === "none" ? "block" : "none";
+  el.classList.toggle("show");
 }
 
 function speak(text) {
