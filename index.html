@@ -240,10 +240,10 @@ function renderList() {
       <b>${s.vi}</b>
       <div class="row">
         <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
+        <button onclick="toggleEn(${i})">👁 Hiện / Ẩn EN</button>
         <button onclick="editSentence(${i})">✏️ Sửa</button>
         <button onclick="deleteSentence(${i})">🗑 Xoá</button>
       </div>
-      <button onclick="toggleEn(${i})">👁 Hiện / Ẩn EN</button>
       <div class="en" id="en-${i}">${s.en}</div>
     `;
     list.appendChild(div);
