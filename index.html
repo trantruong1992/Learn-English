@@ -1,323 +1,180 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>English Learning App</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English Learning App</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 16px;
-      max-width: 720px;
-      margin: auto;
-    }
+<style>
+body {
+  font-family: Arial, sans-serif;
+  max-width: 720px;
+  margin: auto;
+  padding: 16px;
+}
 
-    h2, h3 {
-      margin-top: 16px;
-    }
+input, textarea, select, button {
+  width: 100%;
+  margin: 6px 0;
+  padding: 8px;
+  font-size: 15px;
+}
 
-    input, textarea, select, button {
-      width: 100%;
-      margin: 6px 0;
-      padding: 8px;
-      font-size: 15px;
-      box-sizing: border-box;
-    }
+button { cursor: pointer; }
 
-    button {
-      cursor: pointer;
-    }
+.row {
+  display: flex;
+  gap: 6px;
+}
+.row button { flex: 1; }
 
-    .toolbar, .row {
-      display: flex;
-      gap: 6px;
-    }
+.card {
+  border: 1px solid #ccc;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 10px;
+}
 
-    .toolbar button,
-    .row button {
-      flex: 1;
-    }
+.en {
+  color: #0077cc;
+  margin-top: 8px;
+  font-weight: bold;
+}
 
-    .card {
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 6px;
-    }
-
-    .en {
-      color: #0077cc;
-      margin-top: 6px;
-    }
-
-    #searchInput {
-      padding: 10px;
-      margin: 12px 0;
-      font-size: 16px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-  </style>
+.hidden { display: none; }
+</style>
 </head>
 
 <body>
 
 <h2>📘 English Learning App</h2>
 
-<div class="toolbar">
-  <button onclick="exportData()">📤 Xuất bài học</button>
-  <button onclick="importData()">📥 Nhập bài học</button>
+<div class="row">
+  <button onclick="startStudy()">🎯 Bắt đầu học</button>
+  <button onclick="stopStudy()">📂 Về danh sách</button>
 </div>
-
-<h3>➕ / ✏️ Thêm – Sửa câu</h3>
-
-<input id="structureInput" placeholder="Cấu trúc (VD: There is / There are)" />
-<input id="groupInput" placeholder="Nhóm (VD: Trong nhà)" />
-<textarea id="viInput" placeholder="Câu tiếng Việt"></textarea>
-<textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
-
-<button onclick="saveSentence()">💾 Lưu câu</button>
-<button onclick="cancelEdit()" id="cancelBtn" style="display:none;">❌ Huỷ sửa</button>
 
 <hr>
 
-<h3>📂 Ôn tập</h3>
+<!-- ================= STUDY MODE ================= -->
+<div id="studyBox" class="card hidden">
+  <h3>🎧 Study Mode</h3>
 
-<input
-  type="text"
-  id="searchInput"
-  placeholder="🔍 Tìm câu (Việt / Anh / cấu trúc / nhóm)"
-  oninput="renderList()"
-/>
+  <div id="studyVi"></div>
+  <div id="studyEn" class="en hidden"></div>
 
-<div class="row">
-  <button onclick="shuffleList()">🔀 Trộn câu</button>
-  <button onclick="resetOrder()">↩️ Thứ tự gốc</button>
+  <div class="row">
+    <button onclick="speakCurrent()">🔊 Nghe</button>
+    <button onclick="toggleStudyEn()">👁 Hiện / Ẩn EN</button>
+  </div>
+
+  <button onclick="nextSentence()">➡️ Câu tiếp theo</button>
 </div>
 
-<select id="structureFilter" onchange="updateGroups()"></select>
-<select id="groupFilter" onchange="renderList()"></select>
+<!-- ================= DONE ================= -->
+<div id="doneBox" class="card hidden">
+  <h3>🎉 Bạn đã học xong!</h3>
+  <button onclick="startStudy()">🔁 Học lại từ đầu</button>
+</div>
 
-<div id="list"></div>
+<hr>
 
-<input type="file" id="fileInput" accept=".json" style="display:none" />
+<!-- ================= LIST MODE ================= -->
+<div id="listMode">
+  <h3>📂 Danh sách câu</h3>
+  <div id="list"></div>
+</div>
 
 <script>
-/* ===== CONFIG ===== */
-const STORAGE_KEY = "english_sentences";
+/* ===== STORAGE ===== */
+const KEY = "english_sentences";
 
-/* ===== STATE ===== */
-let editIndex = null;
-let shuffledData = null;
+/* ===== STUDY STATE ===== */
+let studyQueue = [];
+let current = null;
 
 /* ===== DATA ===== */
 function getData() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  return JSON.parse(localStorage.getItem(KEY)) || [];
 }
 
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-/* ===== CRUD ===== */
-function saveSentence() {
-  const structure = structureInput.value.trim();
-  const group = groupInput.value.trim();
-  const vi = viInput.value.trim();
-  const en = enInput.value.trim();
-
-  if (!structure || !group || !vi || !en) {
-    alert("Nhập đầy đủ thông tin");
+/* ===== STUDY MODE ===== */
+function startStudy() {
+  const data = getData();
+  if (!data.length) {
+    alert("Chưa có câu nào");
     return;
   }
 
-  const data = getData();
+  studyQueue = shuffle([...data]);
+  document.getElementById("listMode").classList.add("hidden");
+  document.getElementById("doneBox").classList.add("hidden");
+  document.getElementById("studyBox").classList.remove("hidden");
 
-  if (editIndex !== null) {
-    data[editIndex] = { structure, group, vi, en };
-    editIndex = null;
-    cancelBtn.style.display = "none";
-  } else {
-    data.push({ structure, group, vi, en });
+  nextSentence();
+}
+
+function stopStudy() {
+  document.getElementById("studyBox").classList.add("hidden");
+  document.getElementById("doneBox").classList.add("hidden");
+  document.getElementById("listMode").classList.remove("hidden");
+}
+
+function nextSentence() {
+  if (!studyQueue.length) {
+    document.getElementById("studyBox").classList.add("hidden");
+    document.getElementById("doneBox").classList.remove("hidden");
+    return;
   }
 
-  saveData(data);
-  shuffledData = null;
-
-  viInput.value = "";
-  enInput.value = "";
-
-  loadFilters();
-  renderList();
+  current = studyQueue.pop();
+  studyVi.innerText = "🇻🇳 " + current.vi;
+  studyEn.innerText = "🇬🇧 " + current.en;
+  studyEn.classList.add("hidden");
 }
 
-function editSentence(i) {
-  const s = getData()[i];
-  structureInput.value = s.structure;
-  groupInput.value = s.group;
-  viInput.value = s.vi;
-  enInput.value = s.en;
-  editIndex = i;
-  cancelBtn.style.display = "block";
-  window.scrollTo({ top: 0, behavior: "smooth" });
+function toggleStudyEn() {
+  studyEn.classList.toggle("hidden");
 }
 
-function cancelEdit() {
-  editIndex = null;
-  viInput.value = "";
-  enInput.value = "";
-  cancelBtn.style.display = "none";
-}
-
-function deleteSentence(i) {
-  if (!confirm("Xoá câu này?")) return;
-  const data = getData();
-  data.splice(i, 1);
-  saveData(data);
-  shuffledData = null;
-  loadFilters();
-  renderList();
-}
-
-/* ===== FILTER ===== */
-function loadFilters() {
-  const data = getData();
-  const structures = [...new Set(data.map(s => s.structure))];
-
-  structureFilter.innerHTML =
-    `<option value="">-- Tất cả cấu trúc --</option>` +
-    structures.map(s => `<option>${s}</option>`).join("");
-
-  groupFilter.innerHTML =
-    `<option value="">-- Tất cả nhóm --</option>`;
-}
-
-function updateGroups() {
-  const data = getData();
-  const structure = structureFilter.value;
-
-  const groups = [...new Set(
-    data.filter(s => !structure || s.structure === structure)
-        .map(s => s.group)
-  )];
-
-  groupFilter.innerHTML =
-    `<option value="">-- Tất cả nhóm --</option>` +
-    groups.map(g => `<option>${g}</option>`).join("");
-
-  renderList();
-}
-
-/* ===== SHUFFLE ===== */
-function shuffleList() {
-  const data = getData();
-  shuffledData = [...data];
-
-  for (let i = shuffledData.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffledData[i], shuffledData[j]] = [shuffledData[j], shuffledData[i]];
-  }
-
-  renderList();
-}
-
-function resetOrder() {
-  shuffledData = null;
-  renderList();
-}
-
-/* ===== RENDER ===== */
-function renderList() {
-  const data = shuffledData || getData();
-  const structure = structureFilter.value;
-  const group = groupFilter.value;
-  const keyword = searchInput.value.toLowerCase();
-
-  list.innerHTML = "";
-
-  data.forEach((s, i) => {
-    if (
-      keyword &&
-      !(
-        s.vi.toLowerCase().includes(keyword) ||
-        s.en.toLowerCase().includes(keyword) ||
-        s.structure.toLowerCase().includes(keyword) ||
-        s.group.toLowerCase().includes(keyword)
-      )
-    ) return;
-
-    if ((structure && s.structure !== structure) ||
-        (group && s.group !== group)) return;
-
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `
-      <b>${s.vi}</b>
-      <div class="row">
-        <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
-        <button onclick="toggleEn(${i})">👁 Hiện / Ẩn EN</button>
-        <button onclick="editSentence(${i})">✏️ Sửa</button>
-        <button onclick="deleteSentence(${i})">🗑 Xoá</button>
-      </div>
-      <div class="en" id="en-${i}" hidden>${s.en}</div>
-    `;
-    list.appendChild(div);
-  });
-}
-
-/* ===== UTILS ===== */
-function toggleEn(i) {
-  const el = document.getElementById("en-" + i);
-  if (el) el.hidden = !el.hidden;
-}
-
-function speak(text) {
-  const u = new SpeechSynthesisUtterance(text);
+function speakCurrent() {
+  if (!current) return;
+  const u = new SpeechSynthesisUtterance(current.en);
   u.lang = "en-US";
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
 
-/* ===== IMPORT / EXPORT ===== */
-function exportData() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  if (!data) return alert("Không có dữ liệu");
-  const blob = new Blob([data], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "english_sentences.json";
-  a.click();
+/* ===== LIST MODE (ĐƠN GIẢN) ===== */
+function renderList() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  getData().forEach(s => {
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `<b>${s.vi}</b><br>${s.en}`;
+    list.appendChild(div);
+  });
 }
 
-function importData() {
-  fileInput.value = "";
-  fileInput.click();
+/* ===== UTILS ===== */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
-fileInput.addEventListener("change", function () {
-  const file = this.files[0];
-  if (!file) return;
+/* ===== INIT SAMPLE DATA (XOÁ SAU) ===== */
+if (!localStorage.getItem(KEY)) {
+  localStorage.setItem(KEY, JSON.stringify([
+    { vi: "Có một cái bàn", en: "There is a table." },
+    { vi: "Có hai cái ghế", en: "There are two chairs." },
+    { vi: "Tôi đang học tiếng Anh", en: "I am learning English." }
+  ]));
+}
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const json = JSON.parse(e.target.result);
-      if (!Array.isArray(json)) throw "";
-      if (!confirm("Ghi đè toàn bộ dữ liệu hiện tại?")) return;
-      saveData(json);
-      shuffledData = null;
-      loadFilters();
-      renderList();
-    } catch {
-      alert("File không hợp lệ");
-    }
-  };
-  reader.readAsText(file);
-});
-
-/* ===== INIT ===== */
-loadFilters();
 renderList();
 </script>
 
