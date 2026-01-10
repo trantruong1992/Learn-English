@@ -36,6 +36,7 @@ button { cursor: pointer; }
   display: none;
 }
 small { color: #666; }
+.hidden { display: none; }
 </style>
 </head>
 
@@ -61,7 +62,7 @@ small { color: #666; }
   <textarea id="enInput" placeholder="🇬🇧 Câu tiếng Anh"></textarea>
 
   <button onclick="saveSentence()">💾 Lưu</button>
-  <button onclick="cancelEdit()" id="cancelBtn" style="display:none">❌ Huỷ sửa</button>
+  <button id="cancelBtn" class="hidden" onclick="cancelEdit()">❌ Huỷ sửa</button>
 </div>
 
 <!-- ================= STUDY ================= -->
@@ -76,6 +77,10 @@ small { color: #666; }
     <button onclick="speak()">🔊 Nghe</button>
     <button onclick="nextSentence()">➡️ Tiếp theo</button>
   </div>
+
+  <button id="restartBtn" class="hidden" onclick="restartStudy()">
+    🔁 Học lại từ đầu
+  </button>
 </div>
 
 <!-- ================= LIST ================= -->
@@ -86,6 +91,7 @@ small { color: #666; }
 
 <script>
 const KEY = "english_sentences";
+
 let editIndex = null;
 let queue = [];
 let current = null;
@@ -108,7 +114,7 @@ function saveSentence() {
   if (editIndex !== null) {
     data[editIndex] = { structure: s, group: g, vi, en };
     editIndex = null;
-    cancelBtn.style.display = "none";
+    cancelBtn.classList.add("hidden");
   } else {
     data.push({ structure: s, group: g, vi, en });
   }
@@ -116,6 +122,7 @@ function saveSentence() {
   saveData(data);
   viInput.value = "";
   enInput.value = "";
+
   initStudy();
   renderList();
 }
@@ -127,7 +134,7 @@ function editSentence(i) {
   viInput.value = s.vi;
   enInput.value = s.en;
   editIndex = i;
-  cancelBtn.style.display = "block";
+  cancelBtn.classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -135,7 +142,7 @@ function cancelEdit() {
   editIndex = null;
   viInput.value = "";
   enInput.value = "";
-  cancelBtn.style.display = "none";
+  cancelBtn.classList.add("hidden");
 }
 
 function deleteSentence(i) {
@@ -154,6 +161,7 @@ function shuffle(arr) {
 
 function initStudy() {
   queue = shuffle([...getData()]);
+  restartBtn.classList.add("hidden");
   nextSentence();
 }
 
@@ -161,13 +169,19 @@ function nextSentence() {
   if (queue.length === 0) {
     studyVi.innerText = "🎉 Bạn đã học xong tất cả câu!";
     studyEn.style.display = "none";
+    restartBtn.classList.remove("hidden");
     current = null;
     return;
   }
+
   current = queue.shift();
   studyVi.innerText = current.vi;
   studyEn.innerText = current.en;
   studyEn.style.display = "none";
+}
+
+function restartStudy() {
+  initStudy();
 }
 
 function toggleAnswer() {
