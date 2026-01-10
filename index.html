@@ -6,42 +6,39 @@
 <title>English Learning App</title>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  max-width: 720px;
-  margin: auto;
-  padding: 16px;
-}
-
-input, textarea, select, button {
-  width: 100%;
-  margin: 6px 0;
-  padding: 8px;
-  font-size: 15px;
-}
-
-button { cursor: pointer; }
-
-.row {
-  display: flex;
-  gap: 6px;
-}
-.row button { flex: 1; }
-
-.card {
-  border: 1px solid #ccc;
-  padding: 12px;
-  border-radius: 6px;
-  margin-top: 10px;
-}
-
-.en {
-  color: #0077cc;
-  margin-top: 8px;
-  font-weight: bold;
-}
-
-.hidden { display: none; }
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 720px;
+    margin: auto;
+    padding: 16px;
+  }
+  h2, h3 { margin-top: 24px; }
+  input, textarea, button {
+    width: 100%;
+    margin: 6px 0;
+    padding: 10px;
+    font-size: 16px;
+  }
+  button {
+    cursor: pointer;
+  }
+  .card {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 12px;
+  }
+  .en {
+    color: #0077cc;
+    margin-top: 8px;
+    display: none;
+  }
+  .row {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .row button { flex: 1; }
 </style>
 </head>
 
@@ -49,47 +46,47 @@ button { cursor: pointer; }
 
 <h2>📘 English Learning App</h2>
 
-<div class="row">
-  <button onclick="startStudy()">🎯 Bắt đầu học</button>
-  <button onclick="stopStudy()">📂 Về danh sách</button>
+<!-- ================= CREATE ================= -->
+<div class="card">
+  <h3>➕ Tạo câu mới</h3>
+  <input id="structureInput" placeholder="📐 Cấu trúc (VD: There is / There are)">
+  <input id="groupInput" placeholder="🧩 Nhóm (VD: Trong nhà)">
+  <textarea id="viInput" placeholder="🇻🇳 Câu tiếng Việt"></textarea>
+  <textarea id="enInput" placeholder="🇬🇧 Câu tiếng Anh"></textarea>
+  <button onclick="addSentence()">💾 Lưu câu</button>
 </div>
 
-<hr>
-
-<!-- ================= STUDY MODE ================= -->
-<div id="studyBox" class="card hidden">
-  <h3>🎧 Study Mode</h3>
-
-  <div id="studyVi"></div>
-  <div id="studyEn" class="en hidden"></div>
-
-  <div class="row">
-    <button onclick="speakCurrent()">🔊 Nghe</button>
-    <button onclick="toggleStudyEn()">👁 Hiện / Ẩn EN</button>
+<!-- ================= STUDY ================= -->
+<div class="card">
+  <h3>🎯 Học ngẫu nhiên</h3>
+  <div id="studyArea">
+    <p><b id="studyVi">Chưa có câu</b></p>
+    <p id="studyEn" class="en"></p>
   </div>
 
-  <button onclick="nextSentence()">➡️ Câu tiếp theo</button>
+  <div class="row">
+    <button onclick="toggleAnswer()">👁 Hiện / Ẩn EN</button>
+    <button onclick="speakCurrent()">🔊 Nghe</button>
+    <button onclick="nextSentence()">➡️ Câu tiếp theo</button>
+  </div>
 </div>
 
-<!-- ================= DONE ================= -->
-<div id="doneBox" class="card hidden">
-  <h3>🎉 Bạn đã học xong!</h3>
-  <button onclick="startStudy()">🔁 Học lại từ đầu</button>
-</div>
-
-<hr>
-
-<!-- ================= LIST MODE ================= -->
-<div id="listMode">
-  <h3>📂 Danh sách câu</h3>
+<!-- ================= LIST ================= -->
+<div class="card">
+  <h3>📂 Tất cả câu</h3>
   <div id="list"></div>
 </div>
 
-<script>
-/* ===== STORAGE ===== */
-const KEY = "english_sentences";
+<!-- ================= IMPORT / EXPORT ================= -->
+<div class="card">
+  <h3>📤📥 Sao lưu</h3>
+  <button onclick="exportData()">Xuất file</button>
+  <button onclick="importData()">Nhập file</button>
+  <input type="file" id="fileInput" accept=".json" hidden>
+</div>
 
-/* ===== STUDY STATE ===== */
+<script>
+const KEY = "english_sentences";
 let studyQueue = [];
 let current = null;
 
@@ -97,84 +94,121 @@ let current = null;
 function getData() {
   return JSON.parse(localStorage.getItem(KEY)) || [];
 }
+function saveData(data) {
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
 
-/* ===== STUDY MODE ===== */
-function startStudy() {
-  const data = getData();
-  if (!data.length) {
-    alert("Chưa có câu nào");
+/* ===== CREATE ===== */
+function addSentence() {
+  const s = structureInput.value.trim();
+  const g = groupInput.value.trim();
+  const vi = viInput.value.trim();
+  const en = enInput.value.trim();
+
+  if (!vi || !en) {
+    alert("Phải nhập câu Việt và Anh");
     return;
   }
 
-  studyQueue = shuffle([...data]);
-  document.getElementById("listMode").classList.add("hidden");
-  document.getElementById("doneBox").classList.add("hidden");
-  document.getElementById("studyBox").classList.remove("hidden");
+  const data = getData();
+  data.push({ structure: s, group: g, vi, en });
+  saveData(data);
 
+  viInput.value = "";
+  enInput.value = "";
+
+  initStudy();
+  renderList();
+}
+
+/* ===== STUDY ===== */
+function shuffle(arr) {
+  return arr.sort(() => Math.random() - 0.5);
+}
+
+function initStudy() {
+  studyQueue = shuffle([...getData()]);
   nextSentence();
 }
 
-function stopStudy() {
-  document.getElementById("studyBox").classList.add("hidden");
-  document.getElementById("doneBox").classList.add("hidden");
-  document.getElementById("listMode").classList.remove("hidden");
-}
-
 function nextSentence() {
-  if (!studyQueue.length) {
-    document.getElementById("studyBox").classList.add("hidden");
-    document.getElementById("doneBox").classList.remove("hidden");
+  if (studyQueue.length === 0) {
+    document.getElementById("studyVi").innerText = "🎉 Bạn đã học xong tất cả câu!";
+    document.getElementById("studyEn").style.display = "none";
+    current = null;
     return;
   }
 
-  current = studyQueue.pop();
-  studyVi.innerText = "🇻🇳 " + current.vi;
-  studyEn.innerText = "🇬🇧 " + current.en;
-  studyEn.classList.add("hidden");
+  current = studyQueue.shift();
+  document.getElementById("studyVi").innerText = current.vi;
+  document.getElementById("studyEn").innerText = current.en;
+  document.getElementById("studyEn").style.display = "none";
 }
 
-function toggleStudyEn() {
-  studyEn.classList.toggle("hidden");
+function toggleAnswer() {
+  const en = document.getElementById("studyEn");
+  en.style.display = en.style.display === "none" ? "block" : "none";
 }
 
 function speakCurrent() {
   if (!current) return;
   const u = new SpeechSynthesisUtterance(current.en);
   u.lang = "en-US";
-  speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
 
-/* ===== LIST MODE (ĐƠN GIẢN) ===== */
+/* ===== LIST ===== */
 function renderList() {
   const list = document.getElementById("list");
   list.innerHTML = "";
+
   getData().forEach(s => {
     const div = document.createElement("div");
     div.className = "card";
-    div.innerHTML = `<b>${s.vi}</b><br>${s.en}`;
+    div.innerHTML = `
+      <small>📐 ${s.structure || "-"} | 🧩 ${s.group || "-"}</small><br>
+      <b>${s.vi}</b><br>
+      <span class="en" style="display:block">${s.en}</span>
+    `;
     list.appendChild(div);
   });
 }
 
-/* ===== UTILS ===== */
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+/* ===== IMPORT / EXPORT ===== */
+function exportData() {
+  const data = localStorage.getItem(KEY);
+  if (!data) return alert("Không có dữ liệu");
+  const blob = new Blob([data], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "english_sentences.json";
+  a.click();
 }
 
-/* ===== INIT SAMPLE DATA (XOÁ SAU) ===== */
-if (!localStorage.getItem(KEY)) {
-  localStorage.setItem(KEY, JSON.stringify([
-    { vi: "Có một cái bàn", en: "There is a table." },
-    { vi: "Có hai cái ghế", en: "There are two chairs." },
-    { vi: "Tôi đang học tiếng Anh", en: "I am learning English." }
-  ]));
+function importData() {
+  fileInput.click();
 }
 
+fileInput.addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const json = JSON.parse(reader.result);
+      if (!Array.isArray(json)) throw "";
+      saveData(json);
+      initStudy();
+      renderList();
+    } catch {
+      alert("File không hợp lệ");
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* INIT */
+initStudy();
 renderList();
 </script>
 
