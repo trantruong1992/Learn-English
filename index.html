@@ -1,269 +1,218 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>English Learning App</title>
 
 <style>
 body {
-  font-family: Arial, sans-serif;
-  max-width: 720px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 15px;
+  max-width: 800px;
   margin: auto;
-  padding: 16px;
 }
-input, textarea, button {
+
+input, button, select {
+  padding: 8px;
+  margin: 5px 0;
   width: 100%;
-  margin: 6px 0;
-  padding: 10px;
-  font-size: 16px;
 }
-button { cursor: pointer; }
+
+button {
+  cursor: pointer;
+}
+
 .card {
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 12px;
-  margin-top: 14px;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 6px;
 }
-.row {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-.row button { flex: 1; }
+
 .en {
-  color: #0077cc;
-  margin-top: 6px;
-  display: none;
+  color: #0066cc;
+  margin-top: 5px;
 }
-small { color: #666; }
-.hidden { display: none; }
+
+.actions button {
+  width: auto;
+  margin-right: 5px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>📘 English Learning App</h2>
+<h2>➕ Tạo câu mới</h2>
 
-<!-- ================= IMPORT / EXPORT ================= -->
-<div class="card">
-  <button onclick="exportData()">📤 Xuất bài học</button>
-  <button onclick="importData()">📥 Nhập bài học</button>
-  <input type="file" id="fileInput" accept=".json" hidden>
-</div>
+<input id="viInput" placeholder="🇻🇳 Câu tiếng Việt">
+<input id="enInput" placeholder="🇬🇧 Câu tiếng Anh">
+<input id="structureInput" placeholder="📐 Cấu trúc">
+<input id="groupInput" placeholder="📂 Nhóm">
 
-<!-- ================= ADD / EDIT ================= -->
-<div class="card">
-  <h3>➕ / ✏️ Tạo – Sửa câu</h3>
+<button onclick="addSentence()">💾 Lưu câu</button>
 
-  <input id="structureInput" placeholder="📐 Cấu trúc">
-  <input id="groupInput" placeholder="🧩 Nhóm">
-  <textarea id="viInput" placeholder="🇻🇳 Câu tiếng Việt"></textarea>
-  <textarea id="enInput" placeholder="🇬🇧 Câu tiếng Anh"></textarea>
+<hr>
 
-  <button onclick="saveSentence()">💾 Lưu</button>
-  <button id="cancelBtn" class="hidden" onclick="cancelEdit()">❌ Huỷ sửa</button>
-</div>
+<h2>📚 Danh sách câu</h2>
 
-<!-- ================= STUDY ================= -->
-<div class="card">
-  <h3>🎯 Học ngẫu nhiên</h3>
+<input
+  id="searchInput"
+  placeholder="🔍 Tìm (Việt / Anh / cấu trúc / nhóm)"
+  oninput="renderList()"
+/>
 
-  <div class="row">
-    <button onclick="toggleAnswer()">👁 Hiện / Ẩn EN</button>
-    <button onclick="speakCurrent()">🔊 Nghe</button>
-    <button onclick="nextSentence()">➡️ Tiếp theo</button>
-  </div>
-  
-  <p><b id="studyVi">Chưa có câu</b></p>
-  <p id="studyEn" class="en"></p>
+<button onclick="shuffleSentences()">🔀 Trộn câu</button>
+<button onclick="startLearning()">🎯 Học ngẫu nhiên</button>
+<button onclick="exportData()">📤 Xuất bài học</button>
+<input type="file" onchange="importData(event)">
 
-  <button id="restartBtn" class="hidden" onclick="restartStudy()">🔁 Học lại</button>
-</div>
+<div id="list"></div>
 
-<!-- ================= LIST ================= -->
-<div class="card">
-  <h3>📂 Danh sách câu</h3>
-  <div id="list"></div>
-</div>
+<hr>
+
+<h2>🎓 Học từng câu</h2>
+<div id="learningArea"></div>
 
 <script>
-const KEY = "english_sentences";
-let editIndex = null;
-let queue = [];
-let current = null;
+let sentences = JSON.parse(localStorage.getItem("sentences") || "[]");
+let learningQueue = [];
+let currentIndex = 0;
 
-/* ===== DATA ===== */
-const getData = () => JSON.parse(localStorage.getItem(KEY)) || [];
-const saveData = d => localStorage.setItem(KEY, JSON.stringify(d));
-
-/* ===== ADD / EDIT ===== */
-function saveSentence() {
-  const vi = viInput.value.trim();
-  const en = enInput.value.trim();
-
-  if (!vi || !en) return alert("Phải nhập câu Việt và Anh");
-
-  const data = getData();
-  const item = {
-    structure: structureInput.value.trim(),
-    group: groupInput.value.trim(),
-    vi, en
-  };
-
-  if (editIndex !== null) {
-    data[editIndex] = item;
-    editIndex = null;
-    cancelBtn.classList.add("hidden");
-  } else {
-    data.push(item);
-  }
-
-  saveData(data);
-  viInput.value = "";
-  enInput.value = "";
-
-  initStudy();
-  renderList();
+function save() {
+  localStorage.setItem("sentences", JSON.stringify(sentences));
 }
 
-function editSentence(i) {
-  const s = getData()[i];
-  structureInput.value = s.structure;
-  groupInput.value = s.group;
-  viInput.value = s.vi;
-  enInput.value = s.en;
-  editIndex = i;
-  cancelBtn.classList.remove("hidden");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function cancelEdit() {
-  editIndex = null;
-  viInput.value = "";
-  enInput.value = "";
-  cancelBtn.classList.add("hidden");
-}
-
-function deleteSentence(i) {
-  if (!confirm("Xoá câu này?")) return;
-  const data = getData();
-  data.splice(i, 1);
-  saveData(data);
-  initStudy();
-  renderList();
-}
-
-/* ===== STUDY ===== */
-function shuffle(arr) {
-  return arr.sort(() => Math.random() - 0.5);
-}
-
-function initStudy() {
-  queue = shuffle([...getData()]);
-  restartBtn.classList.add("hidden");
-  nextSentence();
-}
-
-function nextSentence() {
-  if (queue.length === 0) {
-    studyVi.innerText = "🎉 Bạn đã học xong!";
-    studyEn.style.display = "none";
-    restartBtn.classList.remove("hidden");
-    current = null;
-    return;
-  }
-  current = queue.shift();
-  studyVi.innerText = current.vi;
-  studyEn.innerText = current.en;
-  studyEn.style.display = "none";
-}
-
-function restartStudy() {
-  initStudy();
-}
-
-function toggleAnswer() {
-  studyEn.style.display =
-    studyEn.style.display === "none" ? "block" : "none";
-}
-
-function speakCurrent() {
-  if (!current) return;
-  const u = new SpeechSynthesisUtterance(current.en);
-  u.lang = "en-US";
-  speechSynthesis.speak(u);
-}
-
-/* ===== LIST ===== */
-function toggleListEn(i) {
-  const el = document.getElementById("list-en-" + i);
-  el.hidden = !el.hidden;
-}
-
-function speakText(text) {
+function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
   speechSynthesis.speak(u);
 }
 
+function addSentence() {
+  const vi = viInput.value.trim();
+  const en = enInput.value.trim();
+  if (!vi || !en) return alert("Nhập đủ Việt + Anh");
+
+  sentences.push({
+    vi,
+    en,
+    structure: structureInput.value,
+    group: groupInput.value
+  });
+
+  save();
+  viInput.value = "";
+  enInput.value = "";
+  renderList();
+}
+
+function deleteSentence(i) {
+  if (!confirm("Xoá câu này?")) return;
+  sentences.splice(i, 1);
+  save();
+  renderList();
+}
+
+function editSentence(i) {
+  const s = sentences[i];
+  const vi = prompt("Sửa tiếng Việt", s.vi);
+  const en = prompt("Sửa tiếng Anh", s.en);
+  if (!vi || !en) return;
+
+  s.vi = vi;
+  s.en = en;
+  s.structure = prompt("Cấu trúc", s.structure);
+  s.group = prompt("Nhóm", s.group);
+
+  save();
+  renderList();
+}
+
+function toggleEn(i) {
+  const el = document.getElementById("en-" + i);
+  el.hidden = !el.hidden;
+}
+
 function renderList() {
+  const kw = searchInput.value.toLowerCase();
   list.innerHTML = "";
-  getData().forEach((s, i) => {
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `
-      <small>📐 ${s.structure || "-"} | 🧩 ${s.group || "-"}</small>
-      <b>${s.vi}</b>
 
-      <div id="list-en-${i}" class="en" hidden>${s.en}</div>
+  sentences.forEach((s, i) => {
+    const text = `${s.vi} ${s.en} ${s.structure} ${s.group}`.toLowerCase();
+    if (!text.includes(kw)) return;
 
-      <div class="row">
-        <button onclick="toggleListEn(${i})">👁 EN</button>
-        <button onclick="speakText('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
-        <button onclick="editSentence(${i})">✏️</button>
-        <button onclick="deleteSentence(${i})">🗑</button>
+    list.innerHTML += `
+      <div class="card">
+        <b>${s.vi}</b>
+        <div id="en-${i}" class="en" hidden>${s.en}</div>
+        <small>📐 ${s.structure || "-"} | 📂 ${s.group || "-"}</small>
+        <div class="actions">
+          <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊</button>
+          <button onclick="toggleEn(${i})">👁</button>
+          <button onclick="editSentence(${i})">✏️</button>
+          <button onclick="deleteSentence(${i})">🗑</button>
+        </div>
       </div>
     `;
-    list.appendChild(div);
   });
 }
 
-/* ===== IMPORT / EXPORT ===== */
+function shuffleSentences() {
+  sentences.sort(() => Math.random() - 0.5);
+  save();
+  renderList();
+}
+
+function startLearning() {
+  learningQueue = [...sentences].sort(() => Math.random() - 0.5);
+  currentIndex = 0;
+  showLearning();
+}
+
+function showLearning() {
+  if (currentIndex >= learningQueue.length) {
+    learningArea.innerHTML = `
+      <b>🎉 Bạn đã học xong!</b><br><br>
+      <button onclick="startLearning()">🔁 Học lại</button>
+    `;
+    return;
+  }
+
+  const s = learningQueue[currentIndex];
+  learningArea.innerHTML = `
+    <div class="card">
+      <h3>${s.vi}</h3>
+      <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
+      <button onclick="this.nextElementSibling.hidden = !this.nextElementSibling.hidden">👁 Hiện/Ẩn</button>
+      <div class="en" hidden>${s.en}</div>
+      <br><br>
+      <button onclick="currentIndex++; showLearning()">➡️ Câu tiếp</button>
+    </div>
+  `;
+}
+
 function exportData() {
-  const data = localStorage.getItem(KEY);
-  if (!data) return alert("Không có dữ liệu");
-  const blob = new Blob([data], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(sentences)], {type: "application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "english_sentences.json";
   a.click();
 }
 
-function importData() {
-  fileInput.click();
-}
-
-fileInput.onchange = () => {
-  const file = fileInput.files[0];
+function importData(e) {
+  const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    try {
-      const json = JSON.parse(reader.result);
-      if (!Array.isArray(json)) throw "";
-      saveData(json);
-      initStudy();
-      renderList();
-    } catch {
-      alert("File không hợp lệ");
-    }
+    sentences = JSON.parse(reader.result);
+    save();
+    renderList();
   };
   reader.readAsText(file);
-};
+}
 
-/* INIT */
-initStudy();
 renderList();
 </script>
 
