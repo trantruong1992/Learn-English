@@ -28,11 +28,12 @@ button { cursor: pointer; }
 .row {
   display: flex;
   gap: 6px;
+  margin-top: 6px;
 }
 .row button { flex: 1; }
 .en {
   color: #0077cc;
-  margin-top: 8px;
+  margin-top: 6px;
   display: none;
 }
 small { color: #666; }
@@ -48,8 +49,8 @@ small { color: #666; }
 <div class="card">
   <h3>➕ / ✏️ Tạo – Sửa câu</h3>
 
-  <input id="structureInput" placeholder="📐 Cấu trúc (VD: There is / There are)">
-  <input id="groupInput" placeholder="🧩 Nhóm (VD: Trong nhà)">
+  <input id="structureInput" placeholder="📐 Cấu trúc">
+  <input id="groupInput" placeholder="🧩 Nhóm">
   <textarea id="viInput" placeholder="🇻🇳 Câu tiếng Việt"></textarea>
   <textarea id="enInput" placeholder="🇬🇧 Câu tiếng Anh"></textarea>
 
@@ -66,13 +67,11 @@ small { color: #666; }
 
   <div class="row">
     <button onclick="toggleAnswer()">👁 Hiện / Ẩn EN</button>
-    <button onclick="speak()">🔊 Nghe</button>
+    <button onclick="speakCurrent()">🔊 Nghe</button>
     <button onclick="nextSentence()">➡️ Tiếp theo</button>
   </div>
 
-  <button id="restartBtn" class="hidden" onclick="restartStudy()">
-    🔁 Học lại từ đầu
-  </button>
+  <button id="restartBtn" class="hidden" onclick="restartStudy()">🔁 Học lại</button>
 </div>
 
 <!-- ================= LIST ================= -->
@@ -91,7 +90,6 @@ small { color: #666; }
 
 <script>
 const KEY = "english_sentences";
-
 let editIndex = null;
 let queue = [];
 let current = null;
@@ -102,21 +100,24 @@ const saveData = d => localStorage.setItem(KEY, JSON.stringify(d));
 
 /* ===== ADD / EDIT ===== */
 function saveSentence() {
-  const s = structureInput.value.trim();
-  const g = groupInput.value.trim();
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
 
   if (!vi || !en) return alert("Phải nhập câu Việt và Anh");
 
   const data = getData();
+  const item = {
+    structure: structureInput.value.trim(),
+    group: groupInput.value.trim(),
+    vi, en
+  };
 
   if (editIndex !== null) {
-    data[editIndex] = { structure: s, group: g, vi, en };
+    data[editIndex] = item;
     editIndex = null;
     cancelBtn.classList.add("hidden");
   } else {
-    data.push({ structure: s, group: g, vi, en });
+    data.push(item);
   }
 
   saveData(data);
@@ -167,13 +168,12 @@ function initStudy() {
 
 function nextSentence() {
   if (queue.length === 0) {
-    studyVi.innerText = "🎉 Bạn đã học xong tất cả câu!";
+    studyVi.innerText = "🎉 Bạn đã học xong!";
     studyEn.style.display = "none";
     restartBtn.classList.remove("hidden");
     current = null;
     return;
   }
-
   current = queue.shift();
   studyVi.innerText = current.vi;
   studyEn.innerText = current.en;
@@ -189,7 +189,7 @@ function toggleAnswer() {
     studyEn.style.display === "none" ? "block" : "none";
 }
 
-function speak() {
+function speakCurrent() {
   if (!current) return;
   const u = new SpeechSynthesisUtterance(current.en);
   u.lang = "en-US";
@@ -197,18 +197,33 @@ function speak() {
 }
 
 /* ===== LIST ===== */
+function toggleListEn(i) {
+  const el = document.getElementById("list-en-" + i);
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+function speakText(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  speechSynthesis.speak(u);
+}
+
 function renderList() {
   list.innerHTML = "";
   getData().forEach((s, i) => {
     const div = document.createElement("div");
     div.className = "card";
     div.innerHTML = `
-      <small>📐 ${s.structure || "-"} | 🧩 ${s.group || "-"}</small><br>
+      <small>📐 ${s.structure || "-"} | 🧩 ${s.group || "-"}</small>
       <b>${s.vi}</b>
-      <div class="en" style="display:block">${s.en}</div>
+
+      <div id="list-en-${i}" class="en">${s.en}</div>
+
       <div class="row">
-        <button onclick="editSentence(${i})">✏️ Sửa</button>
-        <button onclick="deleteSentence(${i})">🗑 Xoá</button>
+        <button onclick="toggleListEn(${i})">👁 EN</button>
+        <button onclick="speakText('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
+        <button onclick="editSentence(${i})">✏️</button>
+        <button onclick="deleteSentence(${i})">🗑</button>
       </div>
     `;
     list.appendChild(div);
