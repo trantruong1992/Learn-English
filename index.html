@@ -47,9 +47,8 @@ small { color: #666; }
 
 <!-- ================= IMPORT / EXPORT ================= -->
 <div class="card">
-  <h3>📤📥 Sao lưu</h3>
-  <button onclick="exportData()">Xuất file</button>
-  <button onclick="importData()">Nhập file</button>
+  <button onclick="exportData()">📤 Xuất bài học</button>
+  <button onclick="importData()">📥 Nhập bài học</button>
   <input type="file" id="fileInput" accept=".json" hidden>
 </div>
 
@@ -70,14 +69,14 @@ small { color: #666; }
 <div class="card">
   <h3>🎯 Học ngẫu nhiên</h3>
 
-  <p><b id="studyVi">Chưa có câu</b></p>
-  <p id="studyEn" class="en"></p>
-
   <div class="row">
     <button onclick="toggleAnswer()">👁 Hiện / Ẩn EN</button>
     <button onclick="speakCurrent()">🔊 Nghe</button>
     <button onclick="nextSentence()">➡️ Tiếp theo</button>
   </div>
+  
+  <p><b id="studyVi">Chưa có câu</b></p>
+  <p id="studyEn" class="en"></p>
 
   <button id="restartBtn" class="hidden" onclick="restartStudy()">🔁 Học lại</button>
 </div>
