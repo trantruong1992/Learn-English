@@ -45,6 +45,14 @@ small { color: #666; }
 
 <h2>📘 English Learning App</h2>
 
+<!-- ================= IMPORT / EXPORT ================= -->
+<div class="card">
+  <h3>📤📥 Sao lưu</h3>
+  <button onclick="exportData()">Xuất file</button>
+  <button onclick="importData()">Nhập file</button>
+  <input type="file" id="fileInput" accept=".json" hidden>
+</div>
+
 <!-- ================= ADD / EDIT ================= -->
 <div class="card">
   <h3>➕ / ✏️ Tạo – Sửa câu</h3>
@@ -78,14 +86,6 @@ small { color: #666; }
 <div class="card">
   <h3>📂 Danh sách câu</h3>
   <div id="list"></div>
-</div>
-
-<!-- ================= IMPORT / EXPORT ================= -->
-<div class="card">
-  <h3>📤📥 Sao lưu</h3>
-  <button onclick="exportData()">Xuất file</button>
-  <button onclick="importData()">Nhập file</button>
-  <input type="file" id="fileInput" accept=".json" hidden>
 </div>
 
 <script>
