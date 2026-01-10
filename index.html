@@ -7,10 +7,14 @@
 
   <style>
     body {
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       padding: 16px;
       max-width: 720px;
       margin: auto;
+    }
+
+    h2, h3 {
+      margin-top: 16px;
     }
 
     input, textarea, select, button {
@@ -18,15 +22,22 @@
       margin: 6px 0;
       padding: 8px;
       font-size: 15px;
+      box-sizing: border-box;
     }
 
-    .toolbar {
+    button {
+      cursor: pointer;
+    }
+
+    .toolbar, .row {
       display: flex;
       gap: 6px;
-      margin-bottom: 10px;
     }
 
-    .toolbar button { flex: 1; }
+    .toolbar button,
+    .row button {
+      flex: 1;
+    }
 
     .card {
       border: 1px solid #ccc;
@@ -34,14 +45,6 @@
       margin-top: 10px;
       border-radius: 6px;
     }
-
-    .row {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
-    }
-
-    .row button { flex: 1; }
 
     .en {
       color: #0077cc;
@@ -88,6 +91,11 @@
   oninput="renderList()"
 />
 
+<div class="row">
+  <button onclick="shuffleList()">🔀 Trộn câu</button>
+  <button onclick="resetOrder()">↩️ Thứ tự gốc</button>
+</div>
+
 <select id="structureFilter" onchange="updateGroups()"></select>
 <select id="groupFilter" onchange="renderList()"></select>
 
@@ -96,13 +104,18 @@
 <input type="file" id="fileInput" accept=".json" style="display:none" />
 
 <script>
+/* ===== CONFIG ===== */
 const STORAGE_KEY = "english_sentences";
+
+/* ===== STATE ===== */
 let editIndex = null;
+let shuffledData = null;
 
 /* ===== DATA ===== */
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
+
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -130,6 +143,8 @@ function saveSentence() {
   }
 
   saveData(data);
+  shuffledData = null;
+
   viInput.value = "";
   enInput.value = "";
 
@@ -160,6 +175,7 @@ function deleteSentence(i) {
   const data = getData();
   data.splice(i, 1);
   saveData(data);
+  shuffledData = null;
   loadFilters();
   renderList();
 }
@@ -168,26 +184,52 @@ function deleteSentence(i) {
 function loadFilters() {
   const data = getData();
   const structures = [...new Set(data.map(s => s.structure))];
-  structureFilter.innerHTML = `<option value="">-- Tất cả cấu trúc --</option>`;
-  structures.forEach(s => structureFilter.innerHTML += `<option>${s}</option>`);
-  groupFilter.innerHTML = `<option value="">-- Tất cả nhóm --</option>`;
+
+  structureFilter.innerHTML =
+    `<option value="">-- Tất cả cấu trúc --</option>` +
+    structures.map(s => `<option>${s}</option>`).join("");
+
+  groupFilter.innerHTML =
+    `<option value="">-- Tất cả nhóm --</option>`;
 }
 
 function updateGroups() {
   const data = getData();
   const structure = structureFilter.value;
+
   const groups = [...new Set(
     data.filter(s => !structure || s.structure === structure)
         .map(s => s.group)
   )];
-  groupFilter.innerHTML = `<option value="">-- Tất cả nhóm --</option>`;
-  groups.forEach(g => groupFilter.innerHTML += `<option>${g}</option>`);
+
+  groupFilter.innerHTML =
+    `<option value="">-- Tất cả nhóm --</option>` +
+    groups.map(g => `<option>${g}</option>`).join("");
+
+  renderList();
+}
+
+/* ===== SHUFFLE ===== */
+function shuffleList() {
+  const data = getData();
+  shuffledData = [...data];
+
+  for (let i = shuffledData.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledData[i], shuffledData[j]] = [shuffledData[j], shuffledData[i]];
+  }
+
+  renderList();
+}
+
+function resetOrder() {
+  shuffledData = null;
   renderList();
 }
 
 /* ===== RENDER ===== */
 function renderList() {
-  const data = getData();
+  const data = shuffledData || getData();
   const structure = structureFilter.value;
   const group = groupFilter.value;
   const keyword = searchInput.value.toLowerCase();
@@ -227,12 +269,13 @@ function renderList() {
 /* ===== UTILS ===== */
 function toggleEn(i) {
   const el = document.getElementById("en-" + i);
-  el.hidden = !el.hidden;
+  if (el) el.hidden = !el.hidden;
 }
 
 function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
+  speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
 
@@ -247,18 +290,23 @@ function exportData() {
   a.click();
 }
 
-function importData() { fileInput.click(); }
+function importData() {
+  fileInput.value = "";
+  fileInput.click();
+}
 
 fileInput.addEventListener("change", function () {
   const file = this.files[0];
   if (!file) return;
+
   const reader = new FileReader();
   reader.onload = e => {
     try {
       const json = JSON.parse(e.target.result);
       if (!Array.isArray(json)) throw "";
-      if (!confirm("Ghi đè dữ liệu?")) return;
+      if (!confirm("Ghi đè toàn bộ dữ liệu hiện tại?")) return;
       saveData(json);
+      shuffledData = null;
       loadFilters();
       renderList();
     } catch {
@@ -268,7 +316,7 @@ fileInput.addEventListener("change", function () {
   reader.readAsText(file);
 });
 
-/* INIT */
+/* ===== INIT ===== */
 loadFilters();
 renderList();
 </script>
