@@ -6,39 +6,36 @@
 <title>English Learning App</title>
 
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    max-width: 720px;
-    margin: auto;
-    padding: 16px;
-  }
-  h2, h3 { margin-top: 24px; }
-  input, textarea, button {
-    width: 100%;
-    margin: 6px 0;
-    padding: 10px;
-    font-size: 16px;
-  }
-  button {
-    cursor: pointer;
-  }
-  .card {
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 12px;
-    margin-top: 12px;
-  }
-  .en {
-    color: #0077cc;
-    margin-top: 8px;
-    display: none;
-  }
-  .row {
-    display: flex;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  .row button { flex: 1; }
+body {
+  font-family: Arial, sans-serif;
+  max-width: 720px;
+  margin: auto;
+  padding: 16px;
+}
+input, textarea, button {
+  width: 100%;
+  margin: 6px 0;
+  padding: 10px;
+  font-size: 16px;
+}
+button { cursor: pointer; }
+.card {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 14px;
+}
+.row {
+  display: flex;
+  gap: 6px;
+}
+.row button { flex: 1; }
+.en {
+  color: #0077cc;
+  margin-top: 8px;
+  display: none;
+}
+small { color: #666; }
 </style>
 </head>
 
@@ -46,34 +43,36 @@
 
 <h2>📘 English Learning App</h2>
 
-<!-- ================= CREATE ================= -->
+<!-- ================= ADD / EDIT ================= -->
 <div class="card">
-  <h3>➕ Tạo câu mới</h3>
+  <h3>➕ / ✏️ Tạo – Sửa câu</h3>
+
   <input id="structureInput" placeholder="📐 Cấu trúc (VD: There is / There are)">
   <input id="groupInput" placeholder="🧩 Nhóm (VD: Trong nhà)">
   <textarea id="viInput" placeholder="🇻🇳 Câu tiếng Việt"></textarea>
   <textarea id="enInput" placeholder="🇬🇧 Câu tiếng Anh"></textarea>
-  <button onclick="addSentence()">💾 Lưu câu</button>
+
+  <button onclick="saveSentence()">💾 Lưu</button>
+  <button onclick="cancelEdit()" id="cancelBtn" style="display:none">❌ Huỷ sửa</button>
 </div>
 
 <!-- ================= STUDY ================= -->
 <div class="card">
   <h3>🎯 Học ngẫu nhiên</h3>
-  <div id="studyArea">
-    <p><b id="studyVi">Chưa có câu</b></p>
-    <p id="studyEn" class="en"></p>
-  </div>
+
+  <p><b id="studyVi">Chưa có câu</b></p>
+  <p id="studyEn" class="en"></p>
 
   <div class="row">
     <button onclick="toggleAnswer()">👁 Hiện / Ẩn EN</button>
-    <button onclick="speakCurrent()">🔊 Nghe</button>
-    <button onclick="nextSentence()">➡️ Câu tiếp theo</button>
+    <button onclick="speak()">🔊 Nghe</button>
+    <button onclick="nextSentence()">➡️ Tiếp theo</button>
   </div>
 </div>
 
 <!-- ================= LIST ================= -->
 <div class="card">
-  <h3>📂 Tất cả câu</h3>
+  <h3>📂 Danh sách câu</h3>
   <div id="list"></div>
 </div>
 
@@ -87,36 +86,63 @@
 
 <script>
 const KEY = "english_sentences";
-let studyQueue = [];
+let editIndex = null;
+let queue = [];
 let current = null;
 
 /* ===== DATA ===== */
-function getData() {
-  return JSON.parse(localStorage.getItem(KEY)) || [];
-}
-function saveData(data) {
-  localStorage.setItem(KEY, JSON.stringify(data));
-}
+const getData = () => JSON.parse(localStorage.getItem(KEY)) || [];
+const saveData = d => localStorage.setItem(KEY, JSON.stringify(d));
 
-/* ===== CREATE ===== */
-function addSentence() {
+/* ===== ADD / EDIT ===== */
+function saveSentence() {
   const s = structureInput.value.trim();
   const g = groupInput.value.trim();
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
 
-  if (!vi || !en) {
-    alert("Phải nhập câu Việt và Anh");
-    return;
-  }
+  if (!vi || !en) return alert("Phải nhập câu Việt và Anh");
 
   const data = getData();
-  data.push({ structure: s, group: g, vi, en });
-  saveData(data);
 
+  if (editIndex !== null) {
+    data[editIndex] = { structure: s, group: g, vi, en };
+    editIndex = null;
+    cancelBtn.style.display = "none";
+  } else {
+    data.push({ structure: s, group: g, vi, en });
+  }
+
+  saveData(data);
   viInput.value = "";
   enInput.value = "";
+  initStudy();
+  renderList();
+}
 
+function editSentence(i) {
+  const s = getData()[i];
+  structureInput.value = s.structure;
+  groupInput.value = s.group;
+  viInput.value = s.vi;
+  enInput.value = s.en;
+  editIndex = i;
+  cancelBtn.style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function cancelEdit() {
+  editIndex = null;
+  viInput.value = "";
+  enInput.value = "";
+  cancelBtn.style.display = "none";
+}
+
+function deleteSentence(i) {
+  if (!confirm("Xoá câu này?")) return;
+  const data = getData();
+  data.splice(i, 1);
+  saveData(data);
   initStudy();
   renderList();
 }
@@ -127,30 +153,29 @@ function shuffle(arr) {
 }
 
 function initStudy() {
-  studyQueue = shuffle([...getData()]);
+  queue = shuffle([...getData()]);
   nextSentence();
 }
 
 function nextSentence() {
-  if (studyQueue.length === 0) {
-    document.getElementById("studyVi").innerText = "🎉 Bạn đã học xong tất cả câu!";
-    document.getElementById("studyEn").style.display = "none";
+  if (queue.length === 0) {
+    studyVi.innerText = "🎉 Bạn đã học xong tất cả câu!";
+    studyEn.style.display = "none";
     current = null;
     return;
   }
-
-  current = studyQueue.shift();
-  document.getElementById("studyVi").innerText = current.vi;
-  document.getElementById("studyEn").innerText = current.en;
-  document.getElementById("studyEn").style.display = "none";
+  current = queue.shift();
+  studyVi.innerText = current.vi;
+  studyEn.innerText = current.en;
+  studyEn.style.display = "none";
 }
 
 function toggleAnswer() {
-  const en = document.getElementById("studyEn");
-  en.style.display = en.style.display === "none" ? "block" : "none";
+  studyEn.style.display =
+    studyEn.style.display === "none" ? "block" : "none";
 }
 
-function speakCurrent() {
+function speak() {
   if (!current) return;
   const u = new SpeechSynthesisUtterance(current.en);
   u.lang = "en-US";
@@ -159,16 +184,18 @@ function speakCurrent() {
 
 /* ===== LIST ===== */
 function renderList() {
-  const list = document.getElementById("list");
   list.innerHTML = "";
-
-  getData().forEach(s => {
+  getData().forEach((s, i) => {
     const div = document.createElement("div");
     div.className = "card";
     div.innerHTML = `
       <small>📐 ${s.structure || "-"} | 🧩 ${s.group || "-"}</small><br>
-      <b>${s.vi}</b><br>
-      <span class="en" style="display:block">${s.en}</span>
+      <b>${s.vi}</b>
+      <div class="en" style="display:block">${s.en}</div>
+      <div class="row">
+        <button onclick="editSentence(${i})">✏️ Sửa</button>
+        <button onclick="deleteSentence(${i})">🗑 Xoá</button>
+      </div>
     `;
     list.appendChild(div);
   });
@@ -189,8 +216,8 @@ function importData() {
   fileInput.click();
 }
 
-fileInput.addEventListener("change", e => {
-  const file = e.target.files[0];
+fileInput.onchange = () => {
+  const file = fileInput.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
@@ -205,7 +232,7 @@ fileInput.addEventListener("change", e => {
     }
   };
   reader.readAsText(file);
-});
+};
 
 /* INIT */
 initStudy();
