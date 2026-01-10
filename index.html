@@ -198,7 +198,7 @@ function speakCurrent() {
 /* ===== LIST ===== */
 function toggleListEn(i) {
   const el = document.getElementById("list-en-" + i);
-  el.style.display = el.style.display === "none" ? "block" : "none";
+  el.hidden = !el.hidden;
 }
 
 function speakText(text) {
@@ -216,7 +216,7 @@ function renderList() {
       <small>📐 ${s.structure || "-"} | 🧩 ${s.group || "-"}</small>
       <b>${s.vi}</b>
 
-      <div id="list-en-${i}" class="en">${s.en}</div>
+      <div id="list-en-${i}" class="en" hidden>${s.en}</div>
 
       <div class="row">
         <button onclick="toggleListEn(${i})">👁 EN</button>
