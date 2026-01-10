@@ -44,14 +44,6 @@ small { color: #666; }
 
 <h2>📘 English Learning App</h2>
 
-<!-- ================= IMPORT / EXPORT ================= -->
-<div class="card">
-  <h3>📤📥 Sao lưu</h3>
-  <button onclick="exportData()">Xuất file</button>
-  <button onclick="importData()">Nhập file</button>
-  <input type="file" id="fileInput" accept=".json" hidden>
-</div>
-
 <!-- ================= ADD / EDIT ================= -->
 <div class="card">
   <h3>➕ / ✏️ Tạo – Sửa câu</h3>
@@ -69,14 +61,14 @@ small { color: #666; }
 <div class="card">
   <h3>🎯 Học ngẫu nhiên</h3>
 
+  <p><b id="studyVi">Chưa có câu</b></p>
+  <p id="studyEn" class="en"></p>
+
   <div class="row">
     <button onclick="toggleAnswer()">👁 Hiện / Ẩn EN</button>
     <button onclick="speak()">🔊 Nghe</button>
     <button onclick="nextSentence()">➡️ Tiếp theo</button>
   </div>
-
-  <p><b id="studyVi">Chưa có câu</b></p>
-  <p id="studyEn" class="en"></p>
 
   <button id="restartBtn" class="hidden" onclick="restartStudy()">
     🔁 Học lại từ đầu
@@ -87,6 +79,14 @@ small { color: #666; }
 <div class="card">
   <h3>📂 Danh sách câu</h3>
   <div id="list"></div>
+</div>
+
+<!-- ================= IMPORT / EXPORT ================= -->
+<div class="card">
+  <h3>📤📥 Sao lưu</h3>
+  <button onclick="exportData()">Xuất file</button>
+  <button onclick="importData()">Nhập file</button>
+  <input type="file" id="fileInput" accept=".json" hidden>
 </div>
 
 <script>
@@ -207,7 +207,6 @@ function renderList() {
       <b>${s.vi}</b>
       <div class="en" style="display:block">${s.en}</div>
       <div class="row">
-        <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
         <button onclick="editSentence(${i})">✏️ Sửa</button>
         <button onclick="deleteSentence(${i})">🗑 Xoá</button>
       </div>
