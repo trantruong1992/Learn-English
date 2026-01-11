@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>English Learning App</title>
 
 <style>
 body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  padding: 15px;
   max-width: 800px;
   margin: auto;
+  padding: 15px;
 }
 
-input, button, select {
+input, button {
+  width: 100%;
   padding: 8px;
   margin: 5px 0;
-  width: 100%;
 }
 
 button {
@@ -25,9 +25,9 @@ button {
 
 .card {
   border: 1px solid #ddd;
+  border-radius: 6px;
   padding: 10px;
   margin: 10px 0;
-  border-radius: 6px;
 }
 
 .en {
@@ -55,7 +55,7 @@ button {
 
 <hr>
 
-<h2>📚 Danh sách câu</h2>
+<h2>📚 Danh sách & Học câu</h2>
 
 <input
   id="searchInput"
@@ -65,15 +65,13 @@ button {
 
 <button onclick="shuffleSentences()">🔀 Trộn câu</button>
 <button onclick="startLearning()">🎯 Học ngẫu nhiên</button>
-<button onclick="exportData()">📤 Xuất bài học</button>
+<button onclick="exportData()">📤 Xuất</button>
 <input type="file" onchange="importData(event)">
 
-<div id="list"></div>
-
-<hr>
-
-<h2>🎓 Học từng câu</h2>
+<!-- 🔥 PHẦN HỌC TỪNG CÂU ĐƯA LÊN ĐÂY -->
 <div id="learningArea"></div>
+
+<div id="list"></div>
 
 <script>
 let sentences = JSON.parse(localStorage.getItem("sentences") || "[]");
@@ -117,15 +115,10 @@ function deleteSentence(i) {
 
 function editSentence(i) {
   const s = sentences[i];
-  const vi = prompt("Sửa tiếng Việt", s.vi);
-  const en = prompt("Sửa tiếng Anh", s.en);
-  if (!vi || !en) return;
-
-  s.vi = vi;
-  s.en = en;
+  s.vi = prompt("Sửa tiếng Việt", s.vi) || s.vi;
+  s.en = prompt("Sửa tiếng Anh", s.en) || s.en;
   s.structure = prompt("Cấu trúc", s.structure);
   s.group = prompt("Nhóm", s.group);
-
   save();
   renderList();
 }
@@ -174,8 +167,10 @@ function startLearning() {
 function showLearning() {
   if (currentIndex >= learningQueue.length) {
     learningArea.innerHTML = `
-      <b>🎉 Bạn đã học xong!</b><br><br>
-      <button onclick="startLearning()">🔁 Học lại</button>
+      <div class="card">
+        <b>🎉 Đã học xong!</b><br><br>
+        <button onclick="startLearning()">🔁 Học lại</button>
+      </div>
     `;
     return;
   }
@@ -185,7 +180,9 @@ function showLearning() {
     <div class="card">
       <h3>${s.vi}</h3>
       <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
-      <button onclick="this.nextElementSibling.hidden = !this.nextElementSibling.hidden">👁 Hiện/Ẩn</button>
+      <button onclick="this.nextElementSibling.hidden = !this.nextElementSibling.hidden">
+        👁 Hiện / Ẩn
+      </button>
       <div class="en" hidden>${s.en}</div>
       <br><br>
       <button onclick="currentIndex++; showLearning()">➡️ Câu tiếp</button>
