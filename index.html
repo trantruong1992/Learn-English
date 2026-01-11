@@ -1,216 +1,257 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>English Learning App</title>
 
 <style>
 body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  max-width: 800px;
+  font-family: Arial;
+  padding: 16px;
+  max-width: 720px;
   margin: auto;
-  padding: 15px;
 }
 
-input, button {
+input, textarea, select, button {
   width: 100%;
+  margin: 6px 0;
   padding: 8px;
-  margin: 5px 0;
+  font-size: 15px;
 }
 
-button {
-  cursor: pointer;
+.toolbar, .row {
+  display: flex;
+  gap: 6px;
 }
+
+.toolbar button, .row button { flex: 1; }
 
 .card {
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #ccc;
   padding: 10px;
-  margin: 10px 0;
+  margin-top: 10px;
+  border-radius: 6px;
 }
 
 .en {
-  color: #0066cc;
-  margin-top: 5px;
+  color: #0077cc;
+  margin-top: 6px;
 }
 
-.actions button {
-  width: auto;
-  margin-right: 5px;
+.study-box {
+  border: 2px solid #0077cc;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background: #f9fcff;
 }
 </style>
 </head>
 
 <body>
 
-<h2>➕ Tạo câu mới</h2>
+<h2>📘 English Learning App</h2>
 
-<input id="viInput" placeholder="🇻🇳 Câu tiếng Việt">
-<input id="enInput" placeholder="🇬🇧 Câu tiếng Anh">
-<input id="structureInput" placeholder="📐 Cấu trúc">
-<input id="groupInput" placeholder="📂 Nhóm">
+<div class="toolbar">
+  <button onclick="exportData()">📤 Xuất bài học</button>
+  <button onclick="importData()">📥 Nhập bài học</button>
+</div>
 
-<button onclick="addSentence()">💾 Lưu câu</button>
+<h3>➕ / ✏️ Thêm – Sửa câu</h3>
+
+<input id="structureInput" placeholder="Cấu trúc" />
+<input id="groupInput" placeholder="Nhóm" />
+<textarea id="viInput" placeholder="Câu tiếng Việt"></textarea>
+<textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
+
+<button onclick="saveSentence()">💾 Lưu câu</button>
+<button onclick="cancelEdit()" id="cancelBtn" style="display:none;">❌ Huỷ sửa</button>
 
 <hr>
 
-<h2>📚 Danh sách & Học câu</h2>
+<h3>📚 HỌC TỪNG CÂU</h3>
 
-<input
-  id="searchInput"
-  placeholder="🔍 Tìm (Việt / Anh / cấu trúc / nhóm)"
-  oninput="renderList()"
-/>
+<div class="study-box" id="studyBox" style="display:none;">
+  <b id="studyVi"></b>
+  <div class="en" id="studyEn" hidden></div>
 
-<button onclick="shuffleSentences()">🔀 Trộn câu</button>
-<button onclick="startLearning()">🎯 Học ngẫu nhiên</button>
-<button onclick="exportData()">📤 Xuất</button>
-<input type="file" onchange="importData(event)">
+  <div class="row">
+    <button onclick="speakCurrent()">🔊 Nghe</button>
+    <button onclick="toggleStudyEn()">👁 Ẩn / Hiện EN</button>
+  </div>
 
-<!-- 🔥 PHẦN HỌC TỪNG CÂU ĐƯA LÊN ĐÂY -->
-<div id="learningArea"></div>
+  <div class="row">
+    <button onclick="prevSentence()">⏮ Trước</button>
+    <button onclick="nextSentence()">⏭ Tiếp</button>
+  </div>
+</div>
+
+<button onclick="startStudy()">▶️ Bắt đầu học</button>
+
+<hr>
+
+<h3>📂 Ôn tập</h3>
+
+<input id="searchInput" placeholder="🔍 Tìm câu" oninput="renderList()" />
+<select id="structureFilter" onchange="updateGroups()"></select>
+<select id="groupFilter" onchange="renderList()"></select>
 
 <div id="list"></div>
 
+<input type="file" id="fileInput" accept=".json" style="display:none" />
+
 <script>
-let sentences = JSON.parse(localStorage.getItem("sentences") || "[]");
-let learningQueue = [];
-let currentIndex = 0;
+const STORAGE_KEY = "english_sentences";
+let editIndex = null;
 
-function save() {
-  localStorage.setItem("sentences", JSON.stringify(sentences));
+/* ===== STUDY ===== */
+let studyList = [];
+let studyIndex = 0;
+let history = [];
+
+/* ===== DATA ===== */
+function getData() {
+  return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+}
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-function speak(text) {
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  speechSynthesis.speak(u);
-}
-
-function addSentence() {
+/* ===== CRUD ===== */
+function saveSentence() {
+  const structure = structureInput.value.trim();
+  const group = groupInput.value.trim();
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
-  if (!vi || !en) return alert("Nhập đủ Việt + Anh");
+  if (!structure || !group || !vi || !en) return alert("Nhập đầy đủ");
 
-  sentences.push({
-    vi,
-    en,
-    structure: structureInput.value,
-    group: groupInput.value
-  });
-
-  save();
-  viInput.value = "";
-  enInput.value = "";
+  const data = getData();
+  editIndex !== null ? data[editIndex] = {structure,group,vi,en} : data.push({structure,group,vi,en});
+  editIndex = null;
+  cancelBtn.style.display = "none";
+  viInput.value = enInput.value = "";
+  saveData(data);
+  loadFilters();
   renderList();
 }
 
-function deleteSentence(i) {
-  if (!confirm("Xoá câu này?")) return;
-  sentences.splice(i, 1);
-  save();
+function editSentence(i){
+  const s = getData()[i];
+  structureInput.value=s.structure;
+  groupInput.value=s.group;
+  viInput.value=s.vi;
+  enInput.value=s.en;
+  editIndex=i;
+  cancelBtn.style.display="block";
+}
+
+function cancelEdit(){ editIndex=null; cancelBtn.style.display="none"; }
+
+function deleteSentence(i){
+  if(!confirm("Xoá?"))return;
+  const d=getData(); d.splice(i,1); saveData(d);
+  loadFilters(); renderList();
+}
+
+/* ===== FILTER ===== */
+function loadFilters(){
+  const d=getData();
+  structureFilter.innerHTML='<option value="">-- Tất cả cấu trúc --</option>';
+  [...new Set(d.map(s=>s.structure))].forEach(s=>structureFilter.innerHTML+=`<option>${s}</option>`);
+  updateGroups();
+}
+function updateGroups(){
+  const d=getData(), s=structureFilter.value;
+  groupFilter.innerHTML='<option value="">-- Tất cả nhóm --</option>';
+  [...new Set(d.filter(x=>!s||x.structure===s).map(x=>x.group))]
+    .forEach(g=>groupFilter.innerHTML+=`<option>${g}</option>`);
   renderList();
 }
 
-function editSentence(i) {
-  const s = sentences[i];
-  s.vi = prompt("Sửa tiếng Việt", s.vi) || s.vi;
-  s.en = prompt("Sửa tiếng Anh", s.en) || s.en;
-  s.structure = prompt("Cấu trúc", s.structure);
-  s.group = prompt("Nhóm", s.group);
-  save();
-  renderList();
+/* ===== LIST ===== */
+function getFiltered(){
+  const d=getData(), k=searchInput.value.toLowerCase();
+  return d.filter(s =>
+    (!structureFilter.value||s.structure===structureFilter.value) &&
+    (!groupFilter.value||s.group===groupFilter.value) &&
+    (!k||s.vi.toLowerCase().includes(k)||s.en.toLowerCase().includes(k))
+  );
 }
 
-function toggleEn(i) {
-  const el = document.getElementById("en-" + i);
-  el.hidden = !el.hidden;
-}
-
-function renderList() {
-  const kw = searchInput.value.toLowerCase();
-  list.innerHTML = "";
-
-  sentences.forEach((s, i) => {
-    const text = `${s.vi} ${s.en} ${s.structure} ${s.group}`.toLowerCase();
-    if (!text.includes(kw)) return;
-
-    list.innerHTML += `
-      <div class="card">
-        <b>${s.vi}</b>
-        <div id="en-${i}" class="en" hidden>${s.en}</div>
-        <small>📐 ${s.structure || "-"} | 📂 ${s.group || "-"}</small>
-        <div class="actions">
-          <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊</button>
-          <button onclick="toggleEn(${i})">👁</button>
-          <button onclick="editSentence(${i})">✏️</button>
-          <button onclick="deleteSentence(${i})">🗑</button>
-        </div>
+function renderList(){
+  list.innerHTML="";
+  getFiltered().forEach((s,i)=>{
+    const c=document.createElement("div");
+    c.className="card";
+    c.innerHTML=`
+      <b>${s.vi}</b>
+      <div class="row">
+        <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊</button>
+        <button onclick="toggleEn(${i})">👁</button>
+        <button onclick="editSentence(${i})">✏️</button>
+        <button onclick="deleteSentence(${i})">🗑</button>
       </div>
-    `;
+      <div class="en" id="en-${i}" hidden>${s.en}</div>`;
+    list.appendChild(c);
   });
 }
 
-function shuffleSentences() {
-  sentences.sort(() => Math.random() - 0.5);
-  save();
-  renderList();
+/* ===== STUDY LOGIC ===== */
+function startStudy(){
+  studyList = [...getFiltered()].sort(()=>Math.random()-0.5);
+  if(!studyList.length) return alert("Không có câu để học");
+  studyIndex=0; history=[];
+  studyBox.style.display="block";
+  showStudy();
 }
 
-function startLearning() {
-  learningQueue = [...sentences].sort(() => Math.random() - 0.5);
-  currentIndex = 0;
-  showLearning();
-}
-
-function showLearning() {
-  if (currentIndex >= learningQueue.length) {
-    learningArea.innerHTML = `
-      <div class="card">
-        <b>🎉 Đã học xong!</b><br><br>
-        <button onclick="startLearning()">🔁 Học lại</button>
-      </div>
-    `;
+function showStudy(){
+  if(studyIndex>=studyList.length){
+    alert("🎉 Bạn đã học xong!");
+    studyBox.style.display="none";
     return;
   }
-
-  const s = learningQueue[currentIndex];
-  learningArea.innerHTML = `
-    <div class="card">
-      <h3>${s.vi}</h3>
-      <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊 Nghe</button>
-      <button onclick="this.nextElementSibling.hidden = !this.nextElementSibling.hidden">
-        👁 Hiện / Ẩn
-      </button>
-      <div class="en" hidden>${s.en}</div>
-      <br><br>
-      <button onclick="currentIndex++; showLearning()">➡️ Câu tiếp</button>
-    </div>
-  `;
+  const s=studyList[studyIndex];
+  studyVi.textContent=s.vi;
+  studyEn.textContent=s.en;
+  studyEn.hidden=true;
 }
 
-function exportData() {
-  const blob = new Blob([JSON.stringify(sentences)], {type: "application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "english_sentences.json";
-  a.click();
+function nextSentence(){
+  history.push(studyIndex);
+  studyIndex++;
+  showStudy();
 }
 
-function importData(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    sentences = JSON.parse(reader.result);
-    save();
-    renderList();
-  };
-  reader.readAsText(file);
+function prevSentence(){
+  if(history.length===0) return;
+  studyIndex=history.pop();
+  showStudy();
 }
 
-renderList();
+function toggleStudyEn(){ studyEn.hidden=!studyEn.hidden; }
+function speakCurrent(){ speak(studyEn.textContent); }
+
+/* ===== UTILS ===== */
+function toggleEn(i){ document.getElementById("en-"+i).hidden^=1; }
+function speak(t){ const u=new SpeechSynthesisUtterance(t); u.lang="en-US"; speechSynthesis.speak(u); }
+
+/* ===== IMPORT / EXPORT ===== */
+function exportData(){
+  const b=new Blob([localStorage.getItem(STORAGE_KEY)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(b); a.download="english.json"; a.click();
+}
+function importData(){ fileInput.click(); }
+fileInput.onchange=e=>{
+  const r=new FileReader();
+  r.onload=()=>{ saveData(JSON.parse(r.result)); loadFilters(); renderList(); }
+  r.readAsText(e.target.files[0]);
+};
+
+/* INIT */
+loadFilters(); renderList();
 </script>
 
 </body>
