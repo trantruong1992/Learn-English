@@ -73,9 +73,6 @@ input, textarea, select, button {
 <h3>📚 HỌC TỪNG CÂU</h3>
 
 <div class="study-box" id="studyBox" style="display:none;">
-  <b id="studyVi"></b>
-  <div class="en" id="studyEn" hidden></div>
-
   <div class="row">
     <button onclick="speakCurrent()">🔊 Nghe</button>
     <button onclick="toggleStudyEn()">👁 Ẩn / Hiện EN</button>
@@ -85,6 +82,9 @@ input, textarea, select, button {
     <button onclick="prevSentence()">⏮ Trước</button>
     <button onclick="nextSentence()">⏭ Tiếp</button>
   </div>
+  
+  <b id="studyVi"></b>
+  <div class="en" id="studyEn" hidden></div>
 </div>
 
 <button onclick="startStudy()">▶️ Bắt đầu học</button>
@@ -144,6 +144,11 @@ function editSentence(i){
   enInput.value=s.en;
   editIndex=i;
   cancelBtn.style.display="block";
+
+  // 👉 TỰ CUỘN LÊN KHU VỰC TẠO / SỬA
+  window.scrollTo({
+  top: 0,
+  behavior: "smooth"
 }
 
 function cancelEdit(){ editIndex=null; cancelBtn.style.display="none"; }
