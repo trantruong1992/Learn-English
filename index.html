@@ -77,9 +77,6 @@ input, textarea, select, button {
 <h3>📚 Học từng câu</h3>
 
 <div class="study-box" id="studyBox" style="display:none;">
-  <b id="studyVi"></b>
-  <div class="en" id="studyEn" hidden></div>
-
   <div class="row">
     <button onclick="speakCurrent()">🔊 Nghe</button>
     <button onclick="toggleStudyEn()">👁 Ẩn / Hiện EN</button>
@@ -89,6 +86,9 @@ input, textarea, select, button {
     <button onclick="prevSentence()">⏮ Câu trước</button>
     <button onclick="nextSentence()">⏭ Câu tiếp</button>
   </div>
+  
+  <b id="studyVi"></b>
+  <div class="en" id="studyEn" hidden></div>
 </div>
 
 <button onclick="startStudy()">▶️ Bắt đầu học</button>
