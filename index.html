@@ -12,35 +12,29 @@ body {
   max-width: 720px;
   margin: auto;
 }
-
-input, textarea, select, button {
+input, textarea, button {
   width: 100%;
   margin: 6px 0;
   padding: 8px;
   font-size: 15px;
 }
-
 .toolbar, .row {
   display: flex;
   gap: 6px;
 }
-
 .toolbar button, .row button {
   flex: 1;
 }
-
 .card {
   border: 1px solid #ccc;
   padding: 10px;
   margin-top: 10px;
   border-radius: 6px;
 }
-
 .en {
   color: #0077cc;
   margin-top: 6px;
 }
-
 .study-box {
   border: 2px solid #0077cc;
   padding: 12px;
@@ -58,13 +52,12 @@ input, textarea, select, button {
 <div class="toolbar">
   <button onclick="exportData()">📤 Xuất bài học</button>
   <button onclick="importData()">📥 Nhập bài học</button>
+  <button onclick="clearAll()">🗑️ Xoá toàn bộ</button>
 </div>
 
 <!-- ================== CREATE / EDIT ================== -->
 <h3 id="editSection">➕ / ✏️ Thêm – Sửa câu</h3>
 
-<input id="structureInput" placeholder="Cấu trúc (VD: There is / There are)">
-<input id="groupInput" placeholder="Nhóm (VD: Trong nhà)">
 <textarea id="viInput" placeholder="Câu tiếng Việt"></textarea>
 <textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
 
@@ -81,12 +74,10 @@ input, textarea, select, button {
     <button onclick="speakCurrent()">🔊 Nghe</button>
     <button onclick="toggleStudyEn()">👁 Ẩn / Hiện EN</button>
   </div>
-
   <div class="row">
     <button onclick="prevSentence()">⏮ Câu trước</button>
     <button onclick="nextSentence()">⏭ Câu tiếp</button>
   </div>
-  
   <b id="studyVi"></b>
   <div class="en" id="studyEn" hidden></div>
 </div>
@@ -97,12 +88,6 @@ input, textarea, select, button {
 
 <!-- ================== REVIEW ================== -->
 <h3>📂 Ôn tập</h3>
-
-<input id="searchInput" placeholder="🔍 Tìm câu" oninput="renderList()">
-
-<select id="structureFilter" onchange="updateGroups()"></select>
-<select id="groupFilter" onchange="renderList()"></select>
-
 <div id="list"></div>
 
 <input type="file" id="fileInput" accept=".json" hidden>
@@ -111,7 +96,7 @@ input, textarea, select, button {
 const STORAGE_KEY = "english_sentences";
 let editIndex = null;
 
-/* ================= DATA ================= */
+/* DATA */
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
@@ -119,50 +104,33 @@ function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-/* ================= CRUD ================= */
+/* CRUD */
 function saveSentence() {
-  const structure = structureInput.value.trim();
-  const group = groupInput.value.trim();
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
-
-  if (!structure || !group || !vi || !en) {
-    alert("Nhập đầy đủ thông tin");
-    return;
-  }
+  if (!vi || !en) return alert("Nhập đầy đủ câu");
 
   const data = getData();
-
   if (editIndex !== null) {
-    data[editIndex] = { structure, group, vi, en };
+    data[editIndex] = { vi, en };
     editIndex = null;
     cancelBtn.style.display = "none";
   } else {
-    data.push({ structure, group, vi, en });
+    data.push({ vi, en });
   }
-
   saveData(data);
   viInput.value = "";
   enInput.value = "";
-  loadFilters();
   renderList();
 }
 
 function editSentence(i) {
   const s = getData()[i];
-  structureInput.value = s.structure;
-  groupInput.value = s.group;
   viInput.value = s.vi;
   enInput.value = s.en;
-
   editIndex = i;
   cancelBtn.style.display = "block";
-
-  // ✅ TỰ ĐỘNG CUỘN LÊN KHU VỰC TẠO / SỬA
-  document.getElementById("editSection").scrollIntoView({
-    behavior: "smooth",
-    block: "start"
-  });
+  editSection.scrollIntoView({ behavior: "smooth" });
 }
 
 function cancelEdit() {
@@ -177,45 +145,19 @@ function deleteSentence(i) {
   const data = getData();
   data.splice(i, 1);
   saveData(data);
-  loadFilters();
   renderList();
 }
 
-/* ================= FILTER ================= */
-function loadFilters() {
-  const data = getData();
-  structureFilter.innerHTML = `<option value="">-- Tất cả cấu trúc --</option>`;
-  [...new Set(data.map(s => s.structure))]
-    .forEach(s => structureFilter.innerHTML += `<option>${s}</option>`);
-  updateGroups();
-}
-
-function updateGroups() {
-  const data = getData();
-  const structure = structureFilter.value;
-  groupFilter.innerHTML = `<option value="">-- Tất cả nhóm --</option>`;
-  [...new Set(
-    data.filter(s => !structure || s.structure === structure)
-        .map(s => s.group)
-  )].forEach(g => groupFilter.innerHTML += `<option>${g}</option>`);
+function clearAll() {
+  if (!confirm("⚠️ Xoá toàn bộ danh sách?")) return;
+  localStorage.removeItem(STORAGE_KEY);
   renderList();
 }
 
-function getFilteredData() {
-  const keyword = searchInput.value.toLowerCase();
-  return getData().filter(s =>
-    (!structureFilter.value || s.structure === structureFilter.value) &&
-    (!groupFilter.value || s.group === groupFilter.value) &&
-    (!keyword ||
-      s.vi.toLowerCase().includes(keyword) ||
-      s.en.toLowerCase().includes(keyword))
-  );
-}
-
-/* ================= LIST ================= */
+/* LIST */
 function renderList() {
   list.innerHTML = "";
-  getFilteredData().forEach((s, i) => {
+  getData().forEach((s, i) => {
     const div = document.createElement("div");
     div.className = "card";
     div.innerHTML = `
@@ -232,20 +174,17 @@ function renderList() {
   });
 }
 
-/* ================= STUDY MODE ================= */
-let studyList = [];
-let studyIndex = 0;
-let history = [];
+/* STUDY */
+let studyList = [], studyIndex = 0, history = [];
 
 function startStudy() {
-  studyList = [...getFilteredData()].sort(() => Math.random() - 0.5);
+  studyList = [...getData()].sort(() => Math.random() - 0.5);
   if (!studyList.length) return alert("Không có câu để học");
   studyIndex = 0;
   history = [];
   studyBox.style.display = "block";
   showStudy();
 }
-
 function showStudy() {
   if (studyIndex >= studyList.length) {
     alert("🎉 Bạn đã học xong!");
@@ -257,40 +196,35 @@ function showStudy() {
   studyEn.textContent = s.en;
   studyEn.hidden = true;
 }
-
 function nextSentence() {
   history.push(studyIndex);
   studyIndex++;
   showStudy();
 }
-
 function prevSentence() {
   if (!history.length) return;
   studyIndex = history.pop();
   showStudy();
 }
-
 function toggleStudyEn() {
   studyEn.hidden = !studyEn.hidden;
 }
-
 function speakCurrent() {
   speak(studyEn.textContent);
 }
 
-/* ================= UTILS ================= */
+/* UTILS */
 function toggleEn(i) {
   const el = document.getElementById("en-" + i);
   el.hidden = !el.hidden;
 }
-
 function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
   speechSynthesis.speak(u);
 }
 
-/* ================= IMPORT / EXPORT ================= */
+/* IMPORT / EXPORT */
 function exportData() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) return alert("Không có dữ liệu");
@@ -300,25 +234,21 @@ function exportData() {
   a.download = "english_sentences.json";
   a.click();
 }
-
 function importData() {
   fileInput.click();
 }
-
 fileInput.addEventListener("change", function () {
   const file = this.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     saveData(JSON.parse(e.target.result));
-    loadFilters();
     renderList();
   };
   reader.readAsText(file);
 });
 
 /* INIT */
-loadFilters();
 renderList();
 </script>
 
