@@ -43,8 +43,8 @@ input, textarea, button {
   background: #f9fcff;
 }
 .stats {
-  margin: 8px 0;
   font-weight: bold;
+  margin: 8px 0;
 }
 label {
   display: block;
@@ -66,19 +66,17 @@ label {
 
 <div class="stats" id="stats"></div>
 
-<!-- ================= ADD / EDIT ================= -->
+<!-- ADD / EDIT -->
 <h3 id="editSection">➕ / ✏️ Thêm – Sửa câu</h3>
-
 <textarea id="viInput" placeholder="Câu tiếng Việt"></textarea>
 <textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
-
 <button onclick="saveSentence()">💾 Lưu</button>
 <button id="cancelBtn" onclick="cancelEdit()" style="display:none;">❌ Huỷ</button>
 
 <hr>
 
-<!-- ================= STUDY ================= -->
-<h3>📚 Học từng câu</h3>
+<!-- STUDY -->
+<h3>📚 Học từng câu (10 câu / lượt)</h3>
 
 <div class="study-box" id="studyBox" style="display:none;">
   <div class="row">
@@ -88,7 +86,7 @@ label {
 
   <label>
     <input type="checkbox" id="learnedCheckbox" onchange="markLearned()">
-    ✅ Đã thuộc (không học lại)
+    ✅ Đã thuộc (loại khỏi batch)
   </label>
 
   <div class="row">
@@ -104,18 +102,17 @@ label {
 
 <hr>
 
-<!-- ================= LIST ================= -->
+<!-- LIST -->
 <h3>📂 Ôn tập</h3>
 <div id="list"></div>
 
 <input type="file" id="fileInput" accept=".json" hidden>
 
 <script>
-/* ================= CONFIG ================= */
 const STORAGE_KEY = "english_sentences";
 let editIndex = null;
 
-/* ================= DATA ================= */
+/* DATA */
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
@@ -124,21 +121,20 @@ function saveData(data) {
   updateStats();
 }
 
-/* ================= STATS ================= */
+/* STATS */
 function updateStats() {
   const data = getData();
   const learned = data.filter(s => s.learned).length;
   stats.textContent = `📊 Đã thuộc: ${learned} / Tổng: ${data.length}`;
 }
 
-/* ================= CRUD ================= */
+/* CRUD */
 function saveSentence() {
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
   if (!vi || !en) return alert("Nhập đầy đủ câu");
 
   const data = getData();
-
   if (editIndex !== null) {
     data[editIndex] = { ...data[editIndex], vi, en };
     editIndex = null;
@@ -146,7 +142,6 @@ function saveSentence() {
   } else {
     data.push({ vi, en, learned: false });
   }
-
   saveData(data);
   viInput.value = "";
   enInput.value = "";
@@ -184,15 +179,14 @@ function clearAll() {
   updateStats();
 }
 
-/* ================= RESET LEARNED ================= */
 function resetLearned() {
-  if (!confirm("Reset tất cả trạng thái 'đã thuộc'?")) return;
+  if (!confirm("Reset tất cả trạng thái đã thuộc?")) return;
   const data = getData().map(s => ({ ...s, learned: false }));
   saveData(data);
   renderList();
 }
 
-/* ================= LIST ================= */
+/* LIST */
 function renderList() {
   list.innerHTML = "";
   getData().forEach((s, i) => {
@@ -214,18 +208,17 @@ function renderList() {
   updateStats();
 }
 
-/* ================= STUDY ================= */
-let studyList = [];
+/* STUDY – 10 CÂU / BATCH */
+let batch = [];
 let studyIndex = 0;
 let history = [];
 
 function startStudy() {
-  studyList = getData().filter(s => !s.learned)
-                       .sort(() => Math.random() - 0.5);
-
-  if (!studyList.length)
+  const candidates = getData().filter(s => !s.learned);
+  if (!candidates.length)
     return alert("🎉 Không còn câu chưa thuộc!");
 
+  batch = candidates.slice(0, 10); // CHỈ 10 CÂU
   studyIndex = 0;
   history = [];
   studyBox.style.display = "block";
@@ -233,13 +226,15 @@ function startStudy() {
 }
 
 function showStudy() {
-  if (studyIndex >= studyList.length) {
-    alert("🎉 Bạn đã học xong!");
+  if (!batch.length) {
+    alert("🎉 Hoàn thành 10 câu! Bắt đầu batch mới.");
     studyBox.style.display = "none";
     return;
   }
 
-  const s = studyList[studyIndex];
+  if (studyIndex >= batch.length) studyIndex = 0;
+
+  const s = batch[studyIndex];
   studyVi.textContent = s.vi;
   studyEn.textContent = s.en;
   studyEn.hidden = true;
@@ -263,32 +258,33 @@ function toggleStudyEn() {
 }
 
 function markLearned() {
-  const current = studyList[studyIndex];
+  const current = batch[studyIndex];
   const data = getData();
   const idx = data.findIndex(s => s.vi === current.vi && s.en === current.en);
   if (idx !== -1) {
     data[idx].learned = true;
     saveData(data);
   }
+  batch.splice(studyIndex, 1); // LOẠI KHỎI BATCH
+  showStudy();
 }
 
 function speakCurrent() {
   speak(studyEn.textContent);
 }
 
-/* ================= UTILS ================= */
+/* UTILS */
 function toggleEn(i) {
   const el = document.getElementById("en-" + i);
   el.hidden = !el.hidden;
 }
-
 function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
   speechSynthesis.speak(u);
 }
 
-/* ================= IMPORT / EXPORT ================= */
+/* IMPORT / EXPORT */
 function exportData() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) return alert("Không có dữ liệu");
@@ -302,7 +298,6 @@ function exportData() {
 function importData() {
   fileInput.click();
 }
-
 fileInput.addEventListener("change", function () {
   const file = this.files[0];
   if (!file) return;
