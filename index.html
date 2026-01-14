@@ -50,6 +50,9 @@ label {
   display: block;
   margin: 8px 0;
 }
+.hidden {
+  display: none;
+}
 </style>
 </head>
 
@@ -76,9 +79,9 @@ label {
 <hr>
 
 <!-- STUDY -->
-<h3>📚 Học từng câu (10 câu / lượt)</h3>
+<h3>📚 Học từng câu (10 câu / lượt – random)</h3>
 
-<div class="study-box" id="studyBox" style="display:none;">
+<div class="study-box hidden" id="studyBox">
   <div class="row">
     <button onclick="speakCurrent()">🔊 Nghe</button>
     <button onclick="toggleStudyEn()">👁 Ẩn / Hiện EN</button>
@@ -99,6 +102,7 @@ label {
 </div>
 
 <button onclick="startStudy()">▶️ Bắt đầu học</button>
+<button id="nextBatchBtn" class="hidden" onclick="startStudy()">➡️ Học 10 câu tiếp theo</button>
 
 <hr>
 
@@ -112,7 +116,7 @@ label {
 const STORAGE_KEY = "english_sentences";
 let editIndex = null;
 
-/* DATA */
+/* ================= DATA ================= */
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
@@ -121,14 +125,14 @@ function saveData(data) {
   updateStats();
 }
 
-/* STATS */
+/* ================= STATS ================= */
 function updateStats() {
   const data = getData();
   const learned = data.filter(s => s.learned).length;
   stats.textContent = `📊 Đã thuộc: ${learned} / Tổng: ${data.length}`;
 }
 
-/* CRUD */
+/* ================= CRUD ================= */
 function saveSentence() {
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
@@ -186,7 +190,7 @@ function resetLearned() {
   renderList();
 }
 
-/* LIST */
+/* ================= LIST ================= */
 function renderList() {
   list.innerHTML = "";
   getData().forEach((s, i) => {
@@ -208,27 +212,32 @@ function renderList() {
   updateStats();
 }
 
-/* STUDY – 10 CÂU / BATCH */
+/* ================= STUDY (RANDOM BATCH 10) ================= */
 let batch = [];
 let studyIndex = 0;
 let history = [];
 
 function startStudy() {
   const candidates = getData().filter(s => !s.learned);
-  if (!candidates.length)
-    return alert("🎉 Không còn câu chưa thuộc!");
+  if (!candidates.length) {
+    alert("🎉 Không còn câu chưa thuộc!");
+    return;
+  }
 
-  batch = candidates.slice(0, 10); // CHỈ 10 CÂU
+  batch = shuffle([...candidates]).slice(0, 10);
   studyIndex = 0;
   history = [];
-  studyBox.style.display = "block";
+
+  studyBox.classList.remove("hidden");
+  nextBatchBtn.classList.add("hidden");
+
   showStudy();
 }
 
 function showStudy() {
   if (!batch.length) {
-    alert("🎉 Hoàn thành 10 câu! Bắt đầu batch mới.");
-    studyBox.style.display = "none";
+    studyBox.classList.add("hidden");
+    nextBatchBtn.classList.remove("hidden");
     return;
   }
 
@@ -265,7 +274,7 @@ function markLearned() {
     data[idx].learned = true;
     saveData(data);
   }
-  batch.splice(studyIndex, 1); // LOẠI KHỎI BATCH
+  batch.splice(studyIndex, 1);
   showStudy();
 }
 
@@ -273,18 +282,26 @@ function speakCurrent() {
   speak(studyEn.textContent);
 }
 
-/* UTILS */
+/* ================= UTILS ================= */
 function toggleEn(i) {
-  const el = document.getElementById("en-" + i);
-  el.hidden = !el.hidden;
+  document.getElementById("en-" + i).hidden ^= true;
 }
+
 function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
   speechSynthesis.speak(u);
 }
 
-/* IMPORT / EXPORT */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/* ================= IMPORT / EXPORT ================= */
 function exportData() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) return alert("Không có dữ liệu");
