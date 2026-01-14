@@ -42,6 +42,14 @@ input, textarea, button {
   margin-bottom: 12px;
   background: #f9fcff;
 }
+.stats {
+  margin: 8px 0;
+  font-weight: bold;
+}
+label {
+  display: block;
+  margin: 8px 0;
+}
 </style>
 </head>
 
@@ -50,23 +58,26 @@ input, textarea, button {
 <h2>📘 English Learning App</h2>
 
 <div class="toolbar">
-  <button onclick="exportData()">📤 Xuất bài học</button>
-  <button onclick="importData()">📥 Nhập bài học</button>
-  <button onclick="clearAll()">🗑️ Xoá toàn bộ</button>
+  <button onclick="exportData()">📤 Xuất</button>
+  <button onclick="importData()">📥 Nhập</button>
+  <button onclick="resetLearned()">🔄 Reset đã thuộc</button>
+  <button onclick="clearAll()">🗑 Xoá toàn bộ</button>
 </div>
 
-<!-- ================== CREATE / EDIT ================== -->
+<div class="stats" id="stats"></div>
+
+<!-- ================= ADD / EDIT ================= -->
 <h3 id="editSection">➕ / ✏️ Thêm – Sửa câu</h3>
 
 <textarea id="viInput" placeholder="Câu tiếng Việt"></textarea>
 <textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
 
-<button onclick="saveSentence()">💾 Lưu câu</button>
-<button onclick="cancelEdit()" id="cancelBtn" style="display:none;">❌ Huỷ sửa</button>
+<button onclick="saveSentence()">💾 Lưu</button>
+<button id="cancelBtn" onclick="cancelEdit()" style="display:none;">❌ Huỷ</button>
 
 <hr>
 
-<!-- ================== STUDY MODE ================== -->
+<!-- ================= STUDY ================= -->
 <h3>📚 Học từng câu</h3>
 
 <div class="study-box" id="studyBox" style="display:none;">
@@ -74,10 +85,17 @@ input, textarea, button {
     <button onclick="speakCurrent()">🔊 Nghe</button>
     <button onclick="toggleStudyEn()">👁 Ẩn / Hiện EN</button>
   </div>
+
+  <label>
+    <input type="checkbox" id="learnedCheckbox" onchange="markLearned()">
+    ✅ Đã thuộc (không học lại)
+  </label>
+
   <div class="row">
-    <button onclick="prevSentence()">⏮ Câu trước</button>
-    <button onclick="nextSentence()">⏭ Câu tiếp</button>
+    <button onclick="prevSentence()">⏮ Trước</button>
+    <button onclick="nextSentence()">⏭ Tiếp</button>
   </div>
+
   <b id="studyVi"></b>
   <div class="en" id="studyEn" hidden></div>
 </div>
@@ -86,38 +104,49 @@ input, textarea, button {
 
 <hr>
 
-<!-- ================== REVIEW ================== -->
+<!-- ================= LIST ================= -->
 <h3>📂 Ôn tập</h3>
 <div id="list"></div>
 
 <input type="file" id="fileInput" accept=".json" hidden>
 
 <script>
+/* ================= CONFIG ================= */
 const STORAGE_KEY = "english_sentences";
 let editIndex = null;
 
-/* DATA */
+/* ================= DATA ================= */
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  updateStats();
 }
 
-/* CRUD */
+/* ================= STATS ================= */
+function updateStats() {
+  const data = getData();
+  const learned = data.filter(s => s.learned).length;
+  stats.textContent = `📊 Đã thuộc: ${learned} / Tổng: ${data.length}`;
+}
+
+/* ================= CRUD ================= */
 function saveSentence() {
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
   if (!vi || !en) return alert("Nhập đầy đủ câu");
 
   const data = getData();
+
   if (editIndex !== null) {
-    data[editIndex] = { vi, en };
+    data[editIndex] = { ...data[editIndex], vi, en };
     editIndex = null;
     cancelBtn.style.display = "none";
   } else {
-    data.push({ vi, en });
+    data.push({ vi, en, learned: false });
   }
+
   saveData(data);
   viInput.value = "";
   enInput.value = "";
@@ -149,12 +178,21 @@ function deleteSentence(i) {
 }
 
 function clearAll() {
-  if (!confirm("⚠️ Xoá toàn bộ danh sách?")) return;
+  if (!confirm("⚠️ Xoá toàn bộ dữ liệu?")) return;
   localStorage.removeItem(STORAGE_KEY);
+  renderList();
+  updateStats();
+}
+
+/* ================= RESET LEARNED ================= */
+function resetLearned() {
+  if (!confirm("Reset tất cả trạng thái 'đã thuộc'?")) return;
+  const data = getData().map(s => ({ ...s, learned: false }));
+  saveData(data);
   renderList();
 }
 
-/* LIST */
+/* ================= LIST ================= */
 function renderList() {
   list.innerHTML = "";
   getData().forEach((s, i) => {
@@ -169,62 +207,88 @@ function renderList() {
         <button onclick="deleteSentence(${i})">🗑</button>
       </div>
       <div class="en" id="en-${i}" hidden>${s.en}</div>
+      ${s.learned ? "✅ Đã thuộc" : ""}
     `;
     list.appendChild(div);
   });
+  updateStats();
 }
 
-/* STUDY */
-let studyList = [], studyIndex = 0, history = [];
+/* ================= STUDY ================= */
+let studyList = [];
+let studyIndex = 0;
+let history = [];
 
 function startStudy() {
-  studyList = [...getData()].sort(() => Math.random() - 0.5);
-  if (!studyList.length) return alert("Không có câu để học");
+  studyList = getData().filter(s => !s.learned)
+                       .sort(() => Math.random() - 0.5);
+
+  if (!studyList.length)
+    return alert("🎉 Không còn câu chưa thuộc!");
+
   studyIndex = 0;
   history = [];
   studyBox.style.display = "block";
   showStudy();
 }
+
 function showStudy() {
   if (studyIndex >= studyList.length) {
     alert("🎉 Bạn đã học xong!");
     studyBox.style.display = "none";
     return;
   }
+
   const s = studyList[studyIndex];
   studyVi.textContent = s.vi;
   studyEn.textContent = s.en;
   studyEn.hidden = true;
+  learnedCheckbox.checked = false;
 }
+
 function nextSentence() {
   history.push(studyIndex);
   studyIndex++;
   showStudy();
 }
+
 function prevSentence() {
   if (!history.length) return;
   studyIndex = history.pop();
   showStudy();
 }
+
 function toggleStudyEn() {
   studyEn.hidden = !studyEn.hidden;
 }
+
+function markLearned() {
+  const current = studyList[studyIndex];
+  const data = getData();
+  const idx = data.findIndex(s => s.vi === current.vi && s.en === current.en);
+  if (idx !== -1) {
+    data[idx].learned = true;
+    saveData(data);
+  }
+}
+
 function speakCurrent() {
   speak(studyEn.textContent);
 }
 
-/* UTILS */
+/* ================= UTILS ================= */
 function toggleEn(i) {
   const el = document.getElementById("en-" + i);
   el.hidden = !el.hidden;
 }
+
 function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
   speechSynthesis.speak(u);
 }
 
-/* IMPORT / EXPORT */
+/* ================= IMPORT / EXPORT ================= */
 function exportData() {
   const data = localStorage.getItem(STORAGE_KEY);
   if (!data) return alert("Không có dữ liệu");
@@ -234,9 +298,11 @@ function exportData() {
   a.download = "english_sentences.json";
   a.click();
 }
+
 function importData() {
   fileInput.click();
 }
+
 fileInput.addEventListener("change", function () {
   const file = this.files[0];
   if (!file) return;
