@@ -69,7 +69,6 @@ label {
 
 <div class="stats" id="stats"></div>
 
-<!-- ADD / EDIT -->
 <h3 id="editSection">➕ / ✏️ Thêm – Sửa câu</h3>
 <textarea id="viInput" placeholder="Câu tiếng Việt"></textarea>
 <textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
@@ -78,8 +77,7 @@ label {
 
 <hr>
 
-<!-- STUDY -->
-<h3>📚 Học từng câu (10 câu / lượt – random)</h3>
+<h3>📚 Học từng câu (10 câu / batch – random)</h3>
 
 <div class="study-box hidden" id="studyBox">
   <div class="row">
@@ -89,7 +87,7 @@ label {
 
   <label>
     <input type="checkbox" id="learnedCheckbox" onchange="markLearned()">
-    ✅ Đã thuộc (loại khỏi batch)
+    ✅ Đã thuộc (loại vĩnh viễn)
   </label>
 
   <div class="row">
@@ -99,14 +97,16 @@ label {
 
   <b id="studyVi"></b>
   <div class="en" id="studyEn" hidden></div>
+
+  <div class="row">
+    <button onclick="startStudy()">➡️ Học 10 câu tiếp theo</button>
+  </div>
 </div>
 
 <button onclick="startStudy()">▶️ Bắt đầu học</button>
-<button id="nextBatchBtn" class="hidden" onclick="startStudy()">➡️ Học 10 câu tiếp theo</button>
 
 <hr>
 
-<!-- LIST -->
 <h3>📂 Ôn tập</h3>
 <div id="list"></div>
 
@@ -116,7 +116,7 @@ label {
 const STORAGE_KEY = "english_sentences";
 let editIndex = null;
 
-/* ================= DATA ================= */
+/* ===== DATA ===== */
 function getData() {
   return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 }
@@ -125,28 +125,28 @@ function saveData(data) {
   updateStats();
 }
 
-/* ================= STATS ================= */
+/* ===== STATS ===== */
 function updateStats() {
-  const data = getData();
-  const learned = data.filter(s => s.learned).length;
-  stats.textContent = `📊 Đã thuộc: ${learned} / Tổng: ${data.length}`;
+  const d = getData();
+  const learned = d.filter(s => s.learned).length;
+  stats.textContent = `📊 Đã thuộc: ${learned} / Tổng: ${d.length}`;
 }
 
-/* ================= CRUD ================= */
+/* ===== CRUD ===== */
 function saveSentence() {
   const vi = viInput.value.trim();
   const en = enInput.value.trim();
-  if (!vi || !en) return alert("Nhập đầy đủ câu");
+  if (!vi || !en) return alert("Nhập đủ câu");
 
-  const data = getData();
+  const d = getData();
   if (editIndex !== null) {
-    data[editIndex] = { ...data[editIndex], vi, en };
+    d[editIndex] = { ...d[editIndex], vi, en };
     editIndex = null;
     cancelBtn.style.display = "none";
   } else {
-    data.push({ vi, en, learned: false });
+    d.push({ vi, en, learned: false });
   }
-  saveData(data);
+  saveData(d);
   viInput.value = "";
   enInput.value = "";
   renderList();
@@ -158,7 +158,6 @@ function editSentence(i) {
   enInput.value = s.en;
   editIndex = i;
   cancelBtn.style.display = "block";
-  editSection.scrollIntoView({ behavior: "smooth" });
 }
 
 function cancelEdit() {
@@ -170,9 +169,9 @@ function cancelEdit() {
 
 function deleteSentence(i) {
   if (!confirm("Xoá câu này?")) return;
-  const data = getData();
-  data.splice(i, 1);
-  saveData(data);
+  const d = getData();
+  d.splice(i, 1);
+  saveData(d);
   renderList();
 }
 
@@ -184,13 +183,13 @@ function clearAll() {
 }
 
 function resetLearned() {
-  if (!confirm("Reset tất cả trạng thái đã thuộc?")) return;
-  const data = getData().map(s => ({ ...s, learned: false }));
-  saveData(data);
+  if (!confirm("Reset trạng thái đã thuộc?")) return;
+  const d = getData().map(s => ({ ...s, learned: false }));
+  saveData(d);
   renderList();
 }
 
-/* ================= LIST ================= */
+/* ===== LIST ===== */
 function renderList() {
   list.innerHTML = "";
   getData().forEach((s, i) => {
@@ -212,38 +211,34 @@ function renderList() {
   updateStats();
 }
 
-/* ================= STUDY (RANDOM BATCH 10) ================= */
+/* ===== STUDY ===== */
 let batch = [];
-let studyIndex = 0;
+let index = 0;
 let history = [];
 
 function startStudy() {
-  const candidates = getData().filter(s => !s.learned);
-  if (!candidates.length) {
-    alert("🎉 Không còn câu chưa thuộc!");
+  const pool = getData().filter(s => !s.learned);
+  if (!pool.length) {
+    alert("🎉 Không còn câu chưa thuộc");
     return;
   }
 
-  batch = shuffle([...candidates]).slice(0, 10);
-  studyIndex = 0;
+  batch = shuffle([...pool]).slice(0, 10);
+  index = 0;
   history = [];
 
   studyBox.classList.remove("hidden");
-  nextBatchBtn.classList.add("hidden");
-
   showStudy();
 }
 
 function showStudy() {
   if (!batch.length) {
     studyBox.classList.add("hidden");
-    nextBatchBtn.classList.remove("hidden");
     return;
   }
+  if (index >= batch.length) index = 0;
 
-  if (studyIndex >= batch.length) studyIndex = 0;
-
-  const s = batch[studyIndex];
+  const s = batch[index];
   studyVi.textContent = s.vi;
   studyEn.textContent = s.en;
   studyEn.hidden = true;
@@ -251,14 +246,14 @@ function showStudy() {
 }
 
 function nextSentence() {
-  history.push(studyIndex);
-  studyIndex++;
+  history.push(index);
+  index++;
   showStudy();
 }
 
 function prevSentence() {
   if (!history.length) return;
-  studyIndex = history.pop();
+  index = history.pop();
   showStudy();
 }
 
@@ -267,14 +262,14 @@ function toggleStudyEn() {
 }
 
 function markLearned() {
-  const current = batch[studyIndex];
-  const data = getData();
-  const idx = data.findIndex(s => s.vi === current.vi && s.en === current.en);
-  if (idx !== -1) {
-    data[idx].learned = true;
-    saveData(data);
+  const s = batch[index];
+  const d = getData();
+  const i = d.findIndex(x => x.vi === s.vi && x.en === s.en);
+  if (i !== -1) {
+    d[i].learned = true;
+    saveData(d);
   }
-  batch.splice(studyIndex, 1);
+  batch.splice(index, 1);
   showStudy();
 }
 
@@ -282,7 +277,7 @@ function speakCurrent() {
   speak(studyEn.textContent);
 }
 
-/* ================= UTILS ================= */
+/* ===== UTILS ===== */
 function toggleEn(i) {
   document.getElementById("en-" + i).hidden ^= true;
 }
@@ -293,19 +288,19 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return arr;
+  return a;
 }
 
-/* ================= IMPORT / EXPORT ================= */
+/* ===== IMPORT / EXPORT ===== */
 function exportData() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  if (!data) return alert("Không có dữ liệu");
-  const blob = new Blob([data], { type: "application/json" });
+  const d = localStorage.getItem(STORAGE_KEY);
+  if (!d) return alert("Không có dữ liệu");
+  const blob = new Blob([d], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "english_sentences.json";
@@ -316,14 +311,14 @@ function importData() {
   fileInput.click();
 }
 fileInput.addEventListener("change", function () {
-  const file = this.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
+  const f = this.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
     saveData(JSON.parse(e.target.result));
     renderList();
   };
-  reader.readAsText(file);
+  r.readAsText(f);
 });
 
 /* INIT */
