@@ -1,354 +1,1486 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>English Learning App</title>
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  BookOpen,
+  Brain,
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileUp,
+  Filter,
+  Headphones,
+  ListChecks,
+  Moon,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Sparkles,
+  Sun,
+  Trash2,
+  Upload,
+  Volume2,
+  X,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-<style>
-body {
-  font-family: Arial;
-  padding: 16px;
-  max-width: 720px;
-  margin: auto;
+const STORAGE_KEY = "fidelma_english_vocab_app_v1";
+const TODAY = () => new Date().toISOString().slice(0, 10);
+
+const REVIEW_PRESETS = {
+  again: { minutes: 10, intervalDays: 0, efDelta: -0.25, masteryDelta: -1, label: "Again" },
+  hard: { minutes: 0, intervalDays: 1, efDelta: -0.1, masteryDelta: 0, label: "Hard" },
+  good: { minutes: 0, intervalDays: 3, efDelta: 0.05, masteryDelta: 1, label: "Good" },
+  easy: { minutes: 0, intervalDays: 7, efDelta: 0.15, masteryDelta: 2, label: "Easy" },
+};
+
+const defaultDeck = [
+  {
+    id: crypto.randomUUID(),
+    day: 1,
+    word: "issue",
+    meaningVi: "vấn đề",
+    phonetic: "/ˈɪʃuː/",
+    partOfSpeech: "noun",
+    exampleEn: "There is an issue with the app.",
+    exampleVi: "Có một vấn đề với ứng dụng.",
+    synonyms: ["problem", "matter"],
+    antonyms: [],
+    collocations: ["technical issue", "serious issue"],
+    tags: ["work", "IT"],
+    difficulty: 2,
+    notes: "Hay dùng khi nói về lỗi hệ thống hoặc vấn đề công việc.",
+    createdAt: TODAY(),
+    learning: {
+      status: "new",
+      correctCount: 0,
+      wrongCount: 0,
+      streak: 0,
+      intervalDays: 0,
+      easeFactor: 2.5,
+      lastReviewedAt: null,
+      nextReviewAt: TODAY(),
+      mastery: 0,
+      lastGrade: null,
+    },
+  },
+  {
+    id: crypto.randomUUID(),
+    day: 1,
+    word: "schedule",
+    meaningVi: "lịch trình; lên lịch",
+    phonetic: "/ˈskedʒuːl/",
+    partOfSpeech: "noun/verb",
+    exampleEn: "I need to schedule a meeting for tomorrow.",
+    exampleVi: "Tôi cần lên lịch một cuộc họp cho ngày mai.",
+    synonyms: ["plan", "timetable"],
+    antonyms: [],
+    collocations: ["tight schedule", "schedule a meeting"],
+    tags: ["work", "meeting"],
+    difficulty: 2,
+    notes: "Có thể vừa là danh từ vừa là động từ.",
+    createdAt: TODAY(),
+    learning: {
+      status: "new",
+      correctCount: 0,
+      wrongCount: 0,
+      streak: 0,
+      intervalDays: 0,
+      easeFactor: 2.5,
+      lastReviewedAt: null,
+      nextReviewAt: TODAY(),
+      mastery: 0,
+      lastGrade: null,
+    },
+  },
+  {
+    id: crypto.randomUUID(),
+    day: 2,
+    word: "reliable",
+    meaningVi: "đáng tin cậy",
+    phonetic: "/rɪˈlaɪəbl/",
+    partOfSpeech: "adjective",
+    exampleEn: "She is a reliable colleague.",
+    exampleVi: "Cô ấy là một đồng nghiệp đáng tin cậy.",
+    synonyms: ["dependable", "trustworthy"],
+    antonyms: ["unreliable"],
+    collocations: ["reliable source", "reliable colleague"],
+    tags: ["daily", "work"],
+    difficulty: 1,
+    notes: "Dùng nhiều trong đánh giá người hoặc nguồn thông tin.",
+    createdAt: TODAY(),
+    learning: {
+      status: "new",
+      correctCount: 0,
+      wrongCount: 0,
+      streak: 0,
+      intervalDays: 0,
+      easeFactor: 2.5,
+      lastReviewedAt: null,
+      nextReviewAt: TODAY(),
+      mastery: 0,
+      lastGrade: null,
+    },
+  },
+];
+
+const initialForm = {
+  id: null,
+  day: 1,
+  word: "",
+  meaningVi: "",
+  phonetic: "",
+  partOfSpeech: "",
+  exampleEn: "",
+  exampleVi: "",
+  synonyms: "",
+  antonyms: "",
+  collocations: "",
+  tags: "",
+  difficulty: 2,
+  notes: "",
+};
+
+function addDays(dateString, days) {
+  const d = new Date(dateString || TODAY());
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
 }
-input, textarea, button {
-  width: 100%;
-  margin: 6px 0;
-  padding: 8px;
-  font-size: 15px;
-}
-textarea {
-  min-height: 80px;
-}
-.toolbar, .row {
-  display: flex;
-  gap: 6px;
-}
-.toolbar button, .row button {
-  flex: 1;
-}
-.card {
-  border: 1px solid #ccc;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 6px;
-}
-.en {
-  color: #0077cc;
-  margin-top: 6px;
-}
-.vi {
-  white-space: pre-wrap;
-}
-.study-box {
-  border: 2px solid #0077cc;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  background: #f9fcff;
-}
-.stats {
-  font-weight: bold;
-  margin: 8px 0;
-}
-label {
-  display: block;
-  margin: 8px 0;
-}
-.hidden {
-  display: none;
-}
-</style>
-</head>
 
-<body>
-
-<h2>📘 English Learning App</h2>
-
-<div class="toolbar">
-  <button onclick="exportData()">📤 Xuất</button>
-  <button onclick="importData()">📥 Nhập</button>
-  <button onclick="resetLearned()">🔄 Reset đã thuộc</button>
-  <button onclick="clearAll()">🗑 Xoá toàn bộ</button>
-</div>
-
-<div class="stats" id="stats"></div>
-
-<h3 id="editSection">➕ / ✏️ Thêm – Sửa câu</h3>
-<textarea id="viInput" placeholder="Câu tiếng Việt (giữ nguyên xuống dòng, emoji…)"></textarea>
-<textarea id="enInput" placeholder="Câu tiếng Anh"></textarea>
-<button onclick="saveSentence()">💾 Lưu</button>
-<button id="cancelBtn" onclick="cancelEdit()" class="hidden">❌ Huỷ</button>
-
-<hr>
-
-<h3>📚 Học từng câu (10 câu / batch – random)</h3>
-
-<div class="study-box hidden" id="studyBox">
-  <div class="row">
-    <button onclick="speakCurrent()">🔊 Nghe</button>
-    <button onclick="toggleStudyEn()">👁 Ẩn / Hiện EN</button>
-  </div>
-
-  <label>
-    <input type="checkbox" id="learnedCheckbox" onchange="markLearned()">
-    ✅ Đã thuộc (loại vĩnh viễn)
-  </label>
-
-  <div class="row">
-    <button onclick="prevSentence()">⏮ Trước</button>
-    <button onclick="nextSentence()">⏭ Tiếp</button>
-  </div>
-
-  <div id="studyVi" class="vi"></div>
-  <div id="studyEn" class="en hidden"></div>
-
-  <div class="row">
-    <button onclick="startStudy()">➡️ Học 10 câu tiếp theo</button>
-  </div>
-</div>
-
-<button onclick="startStudy()">▶️ Bắt đầu học</button>
-
-<hr>
-
-<h3>📂 Ôn tập</h3>
-<div id="list"></div>
-
-<input type="file" id="fileInput" accept=".json" hidden>
-
-<script>
-const STORAGE_KEY = "english_sentences";
-let editIndex = null;
-
-/* ===== DATA ===== */
-function getData() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-}
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  updateStats();
+function addMinutesToNow(minutes) {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + minutes);
+  return d.toISOString().slice(0, 10);
 }
 
-/* ===== STATS ===== */
-function updateStats() {
-  const d = getData();
-  const learned = d.filter(s => s.learned).length;
-  stats.textContent = `📊 Đã thuộc: ${learned} / Tổng: ${d.length}`;
+function normalizeText(str) {
+  return (str || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[.,!?;:]/g, "")
+    .replace(/\s+/g, " ");
 }
 
-/* ===== CRUD ===== */
-function saveSentence() {
-  const vi = viInput.value;
-  const en = enInput.value.trim();
-  if (!vi || !en) return alert("Nhập đủ câu");
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
 
-  const d = getData();
-  if (editIndex !== null) {
-    d[editIndex] = { ...d[editIndex], vi, en };
-    editIndex = null;
-    cancelBtn.classList.add("hidden");
-  } else {
-    d.push({ vi, en, learned: false });
+function safeParse(json, fallback) {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
   }
-  saveData(d);
-  viInput.value = "";
-  enInput.value = "";
-  renderList();
 }
 
-function editSentence(i) {
-  const s = getData()[i];
-  viInput.value = s.vi;
-  enInput.value = s.en;
-  editIndex = i;
-  cancelBtn.classList.remove("hidden");
-
-  document.getElementById("editSection")
-    .scrollIntoView({ behavior: "smooth" });
-}
-
-function cancelEdit() {
-  editIndex = null;
-  viInput.value = "";
-  enInput.value = "";
-  cancelBtn.classList.add("hidden");
-}
-
-function deleteSentence(i) {
-  if (!confirm("Xoá câu này?")) return;
-  const d = getData();
-  d.splice(i, 1);
-  saveData(d);
-  renderList();
-}
-
-function clearAll() {
-  if (!confirm("⚠️ Xoá toàn bộ dữ liệu?")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  renderList();
-  updateStats();
-}
-
-function resetLearned() {
-  if (!confirm("Reset trạng thái đã thuộc?")) return;
-  const d = getData().map(s => ({ ...s, learned: false }));
-  saveData(d);
-  renderList();
-}
-
-/* ===== LIST ===== */
-function renderList() {
-  list.innerHTML = "";
-  getData().forEach((s, i) => {
-    const div = document.createElement("div");
-    div.className = "card";
-
-    const vi = document.createElement("div");
-    vi.className = "vi";
-    vi.textContent = s.vi;
-
-    const row = document.createElement("div");
-    row.className = "row";
-    row.innerHTML = `
-      <button onclick="speak('${s.en.replace(/'/g,"\\'")}')">🔊</button>
-      <button onclick="toggleEn(${i})">👁</button>
-      <button onclick="editSentence(${i})">✏️</button>
-      <button onclick="deleteSentence(${i})">🗑</button>
-    `;
-
-    const en = document.createElement("div");
-    en.className = "en hidden";
-    en.id = "en-" + i;
-    en.textContent = s.en;
-
-    div.appendChild(vi);
-    div.appendChild(row);
-    div.appendChild(en);
-
-    if (s.learned) {
-      const learned = document.createElement("div");
-      learned.textContent = "✅ Đã thuộc";
-      div.appendChild(learned);
-    }
-
-    list.appendChild(div);
+function getInitialState() {
+  if (typeof window === "undefined") {
+    return {
+      items: defaultDeck,
+      settings: {
+        darkMode: false,
+        voiceLang: "en-US",
+        autoSpeak: false,
+        cardsPerSession: 20,
+        typingRevealDelay: 800,
+      },
+      sessionLog: [],
+    };
+  }
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) {
+    return {
+      items: defaultDeck,
+      settings: {
+        darkMode: false,
+        voiceLang: "en-US",
+        autoSpeak: false,
+        cardsPerSession: 20,
+        typingRevealDelay: 800,
+      },
+      sessionLog: [],
+    };
+  }
+  return safeParse(saved, {
+    items: defaultDeck,
+    settings: {
+      darkMode: false,
+      voiceLang: "en-US",
+      autoSpeak: false,
+      cardsPerSession: 20,
+      typingRevealDelay: 800,
+    },
+    sessionLog: [],
   });
-
-  updateStats();
 }
 
-/* ===== STUDY ===== */
-let batch = [];
-let index = 0;
-let history = [];
-
-function startStudy() {
-  const pool = getData().filter(s => !s.learned);
-  if (!pool.length) return alert("🎉 Không còn câu chưa thuộc");
-
-  batch = shuffle([...pool]).slice(0, 10);
-  index = 0;
-  history = [];
-
-  studyBox.classList.remove("hidden");
-  showStudy();
+function AppHeader({ darkMode, setDarkMode, dueCount, totalWords, masteredCount }) {
+  return (
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <div className="flex items-center gap-2">
+          <div className="rounded-2xl bg-blue-600 p-2 text-white shadow-lg">
+            <Brain className="h-5 w-5" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Personal English Vocab Lab</h1>
+        </div>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Học từ vựng theo ngày, spaced repetition, luyện gõ, nghe, quiz và theo dõi tiến độ trên một app cá nhân.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatPill label="Due today" value={dueCount} />
+        <StatPill label="Total words" value={totalWords} />
+        <StatPill label="Mastered" value={masteredCount} />
+        <Button
+          variant="outline"
+          className="h-auto rounded-2xl px-4 py-3"
+          onClick={() => setDarkMode(!darkMode)}
+        >
+          {darkMode ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+          {darkMode ? "Light" : "Dark"}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
-function showStudy() {
-  if (!batch.length) {
-    studyBox.classList.add("hidden");
-    return;
-  }
-  if (index >= batch.length) index = 0;
-
-  const s = batch[index];
-  studyVi.textContent = s.vi;
-  studyEn.textContent = s.en;
-  studyEn.classList.add("hidden");
-  learnedCheckbox.checked = false;
+function StatPill({ label, value }) {
+  return (
+    <div className="rounded-2xl border bg-white/70 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
+    </div>
+  );
 }
 
-function nextSentence() {
-  history.push(index);
-  index++;
-  showStudy();
+function speakText(text, lang = "en-US") {
+  if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  utterance.rate = 0.95;
+  utterance.pitch = 1;
+  window.speechSynthesis.speak(utterance);
 }
 
-function prevSentence() {
-  if (!history.length) return;
-  index = history.pop();
-  showStudy();
-}
+function buildLearningPatch(item, grade) {
+  const preset = REVIEW_PRESETS[grade];
+  const prev = item.learning || {};
+  const previousInterval = prev.intervalDays || 0;
+  const nextInterval = grade === "again"
+    ? 0
+    : grade === "hard"
+      ? Math.max(1, previousInterval || 1)
+      : grade === "good"
+        ? Math.max(3, Math.round((previousInterval || 1) * 1.7))
+        : Math.max(7, Math.round((previousInterval || 2) * 2.2));
 
-function toggleStudyEn() {
-  studyEn.classList.toggle("hidden");
-}
+  const nextReviewAt = preset.minutes > 0 ? addMinutesToNow(preset.minutes) : addDays(TODAY(), nextInterval);
 
-function markLearned() {
-  const s = batch[index];
-  const d = getData();
-  const i = d.findIndex(x => x.vi === s.vi && x.en === s.en);
-  if (i !== -1) {
-    d[i].learned = true;
-    saveData(d);
-  }
-  batch.splice(index, 1);
-  showStudy();
-}
-
-function speakCurrent() {
-  speak(studyEn.textContent);
-}
-
-/* ===== UTILS ===== */
-function toggleEn(i) {
-  document.getElementById("en-" + i).classList.toggle("hidden");
-}
-
-function speak(text) {
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  speechSynthesis.speak(u);
-}
-
-function shuffle(a) {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-/* ===== IMPORT / EXPORT ===== */
-function exportData() {
-  const d = localStorage.getItem(STORAGE_KEY);
-  if (!d) return alert("Không có dữ liệu");
-  const blob = new Blob([d], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "english_sentences.json";
-  a.click();
-}
-
-function importData() {
-  fileInput.click();
-}
-fileInput.addEventListener("change", function () {
-  const f = this.files[0];
-  if (!f) return;
-  const r = new FileReader();
-  r.onload = e => {
-    saveData(JSON.parse(e.target.result));
-    renderList();
+  return {
+    ...prev,
+    status: grade === "easy" ? "mastering" : grade === "again" ? "learning" : "review",
+    correctCount: prev.correctCount + (grade === "again" ? 0 : 1),
+    wrongCount: prev.wrongCount + (grade === "again" ? 1 : 0),
+    streak: grade === "again" ? 0 : (prev.streak || 0) + 1,
+    intervalDays: nextInterval,
+    easeFactor: clamp((prev.easeFactor || 2.5) + preset.efDelta, 1.3, 3.4),
+    lastReviewedAt: TODAY(),
+    nextReviewAt,
+    mastery: clamp((prev.mastery || 0) + preset.masteryDelta, 0, 100),
+    lastGrade: grade,
   };
-  r.readAsText(f);
-});
+}
 
-/* INIT */
-renderList();
-</script>
+function difficultyLabel(value) {
+  return ["Very easy", "Easy", "Medium", "Hard", "Very hard"][value - 1] || "Medium";
+}
 
-</body>
-</html>
+export default function EnglishVocabApp() {
+  const [state, setState] = useState(getInitialState);
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [form, setForm] = useState(initialForm);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryDayFilter, setLibraryDayFilter] = useState("all");
+  const [libraryTagFilter, setLibraryTagFilter] = useState("all");
+  const [studyMode, setStudyMode] = useState("typing");
+  const [studySource, setStudySource] = useState("due");
+  const [studyDay, setStudyDay] = useState("all");
+  const [studyIndex, setStudyIndex] = useState(0);
+  const [typedAnswer, setTypedAnswer] = useState("");
+  const [typedFeedback, setTypedFeedback] = useState(null);
+  const [quizSelected, setQuizSelected] = useState("");
+  const [flipped, setFlipped] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [statsRange, setStatsRange] = useState("7");
+  const typingInputRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      document.documentElement.classList.toggle("dark", state.settings.darkMode);
+    }
+  }, [state]);
+
+  const items = state.items || [];
+  const settings = state.settings || {};
+  const sessionLog = state.sessionLog || [];
+
+  const dueItems = useMemo(
+    () => items.filter((item) => !item.learning?.nextReviewAt || item.learning.nextReviewAt <= TODAY()),
+    [items]
+  );
+
+  const masteredCount = useMemo(
+    () => items.filter((item) => (item.learning?.mastery || 0) >= 80).length,
+    [items]
+  );
+
+  const allTags = useMemo(() => {
+    const tagSet = new Set();
+    items.forEach((item) => (item.tags || []).forEach((tag) => tagSet.add(tag)));
+    return Array.from(tagSet).sort();
+  }, [items]);
+
+  const allDays = useMemo(() => {
+    const daySet = new Set(items.map((item) => String(item.day || 1)));
+    return Array.from(daySet).sort((a, b) => Number(a) - Number(b));
+  }, [items]);
+
+  const libraryItems = useMemo(() => {
+    return items.filter((item) => {
+      const searchText = [
+        item.word,
+        item.meaningVi,
+        item.exampleEn,
+        item.exampleVi,
+        (item.tags || []).join(" "),
+        (item.collocations || []).join(" "),
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch = !librarySearch || searchText.includes(librarySearch.toLowerCase());
+      const matchesDay = libraryDayFilter === "all" || String(item.day) === libraryDayFilter;
+      const matchesTag = libraryTagFilter === "all" || (item.tags || []).includes(libraryTagFilter);
+      return matchesSearch && matchesDay && matchesTag;
+    });
+  }, [items, librarySearch, libraryDayFilter, libraryTagFilter]);
+
+  const difficultItems = useMemo(() => {
+    return [...items]
+      .filter((item) => (item.learning?.wrongCount || 0) > 0)
+      .sort((a, b) => (b.learning?.wrongCount || 0) - (a.learning?.wrongCount || 0))
+      .slice(0, 12);
+  }, [items]);
+
+  const studyItems = useMemo(() => {
+    let pool = [];
+    if (studySource === "due") pool = dueItems;
+    if (studySource === "all") pool = items;
+    if (studySource === "difficult") pool = difficultItems;
+    if (studySource === "day") pool = items.filter((item) => String(item.day) === studyDay);
+    if (studyDay !== "all" && studySource !== "day") {
+      pool = pool.filter((item) => String(item.day) === studyDay);
+    }
+    return pool.slice(0, settings.cardsPerSession || 20);
+  }, [studySource, dueItems, items, difficultItems, studyDay, settings.cardsPerSession]);
+
+  const currentItem = studyItems[studyIndex] || null;
+
+  const todayLog = useMemo(() => sessionLog.filter((log) => log.date === TODAY()), [sessionLog]);
+
+  const accuracyToday = useMemo(() => {
+    if (!todayLog.length) return 0;
+    const correct = todayLog.filter((log) => log.correct).length;
+    return Math.round((correct / todayLog.length) * 100);
+  }, [todayLog]);
+
+  const rangeLog = useMemo(() => {
+    const days = Number(statsRange);
+    const dates = Array.from({ length: days }).map((_, idx) => addDays(TODAY(), -idx));
+    return dates
+      .map((date) => {
+        const logs = sessionLog.filter((entry) => entry.date === date);
+        const correct = logs.filter((entry) => entry.correct).length;
+        return {
+          date,
+          total: logs.length,
+          correct,
+          accuracy: logs.length ? Math.round((correct / logs.length) * 100) : 0,
+        };
+      })
+      .reverse();
+  }, [sessionLog, statsRange]);
+
+  useEffect(() => {
+    setStudyIndex(0);
+    setTypedAnswer("");
+    setTypedFeedback(null);
+    setQuizSelected("");
+    setFlipped(false);
+  }, [studyMode, studySource, studyDay]);
+
+  useEffect(() => {
+    if (currentItem && settings.autoSpeak && (studyMode === "listening" || studyMode === "flashcard")) {
+      speakText(currentItem.word, settings.voiceLang);
+    }
+  }, [currentItem, studyMode, settings.autoSpeak, settings.voiceLang]);
+
+  useEffect(() => {
+    if (studyMode === "typing" && typingInputRef.current) {
+      typingInputRef.current.focus();
+    }
+  }, [studyIndex, studyMode]);
+
+  function updateSettings(patch) {
+    setState((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }));
+  }
+
+  function upsertWord() {
+    if (!form.word.trim() || !form.meaningVi.trim()) return;
+
+    const payload = {
+      id: form.id || crypto.randomUUID(),
+      day: Number(form.day || 1),
+      word: form.word.trim(),
+      meaningVi: form.meaningVi.trim(),
+      phonetic: form.phonetic.trim(),
+      partOfSpeech: form.partOfSpeech.trim(),
+      exampleEn: form.exampleEn.trim(),
+      exampleVi: form.exampleVi.trim(),
+      synonyms: form.synonyms.split(",").map((v) => v.trim()).filter(Boolean),
+      antonyms: form.antonyms.split(",").map((v) => v.trim()).filter(Boolean),
+      collocations: form.collocations.split(",").map((v) => v.trim()).filter(Boolean),
+      tags: form.tags.split(",").map((v) => v.trim()).filter(Boolean),
+      difficulty: Number(form.difficulty || 2),
+      notes: form.notes.trim(),
+      createdAt: TODAY(),
+      learning: form.id
+        ? items.find((item) => item.id === form.id)?.learning || {
+            status: "new",
+            correctCount: 0,
+            wrongCount: 0,
+            streak: 0,
+            intervalDays: 0,
+            easeFactor: 2.5,
+            lastReviewedAt: null,
+            nextReviewAt: TODAY(),
+            mastery: 0,
+            lastGrade: null,
+          }
+        : {
+            status: "new",
+            correctCount: 0,
+            wrongCount: 0,
+            streak: 0,
+            intervalDays: 0,
+            easeFactor: 2.5,
+            lastReviewedAt: null,
+            nextReviewAt: TODAY(),
+            mastery: 0,
+            lastGrade: null,
+          },
+    };
+
+    setState((prev) => {
+      const exists = prev.items.some((item) => item.id === payload.id);
+      return {
+        ...prev,
+        items: exists
+          ? prev.items.map((item) => (item.id === payload.id ? payload : item))
+          : [payload, ...prev.items],
+      };
+    });
+
+    setForm(initialForm);
+  }
+
+  function editWord(item) {
+    setForm({
+      id: item.id,
+      day: item.day,
+      word: item.word || "",
+      meaningVi: item.meaningVi || "",
+      phonetic: item.phonetic || "",
+      partOfSpeech: item.partOfSpeech || "",
+      exampleEn: item.exampleEn || "",
+      exampleVi: item.exampleVi || "",
+      synonyms: (item.synonyms || []).join(", "),
+      antonyms: (item.antonyms || []).join(", "),
+      collocations: (item.collocations || []).join(", "),
+      tags: (item.tags || []).join(", "),
+      difficulty: item.difficulty || 2,
+      notes: item.notes || "",
+    });
+    setActiveTab("library");
+  }
+
+  function deleteWord(id) {
+    setState((prev) => ({ ...prev, items: prev.items.filter((item) => item.id !== id) }));
+  }
+
+  function resetProgress() {
+    setState((prev) => ({
+      ...prev,
+      sessionLog: [],
+      items: prev.items.map((item) => ({
+        ...item,
+        learning: {
+          status: "new",
+          correctCount: 0,
+          wrongCount: 0,
+          streak: 0,
+          intervalDays: 0,
+          easeFactor: 2.5,
+          lastReviewedAt: null,
+          nextReviewAt: TODAY(),
+          mastery: 0,
+          lastGrade: null,
+        },
+      })),
+    }));
+  }
+
+  function logAttempt(item, correct, mode, typed = "") {
+    setState((prev) => ({
+      ...prev,
+      sessionLog: [
+        {
+          id: crypto.randomUUID(),
+          wordId: item.id,
+          word: item.word,
+          date: TODAY(),
+          correct,
+          mode,
+          typed,
+        },
+        ...prev.sessionLog,
+      ].slice(0, 3000),
+    }));
+  }
+
+  function applyReview(item, grade, mode, correct, typed = "") {
+    const learning = buildLearningPatch(item, grade);
+    setState((prev) => ({
+      ...prev,
+      items: prev.items.map((entry) => (entry.id === item.id ? { ...entry, learning } : entry)),
+      sessionLog: [
+        {
+          id: crypto.randomUUID(),
+          wordId: item.id,
+          word: item.word,
+          date: TODAY(),
+          correct,
+          mode,
+          typed,
+          grade,
+        },
+        ...prev.sessionLog,
+      ].slice(0, 3000),
+    }));
+  }
+
+  function nextCard() {
+    if (!studyItems.length) return;
+    setStudyIndex((prev) => (prev + 1 >= studyItems.length ? 0 : prev + 1));
+    setTypedAnswer("");
+    setTypedFeedback(null);
+    setQuizSelected("");
+    setFlipped(false);
+  }
+
+  function prevCard() {
+    if (!studyItems.length) return;
+    setStudyIndex((prev) => (prev - 1 < 0 ? studyItems.length - 1 : prev - 1));
+    setTypedAnswer("");
+    setTypedFeedback(null);
+    setQuizSelected("");
+    setFlipped(false);
+  }
+
+  function submitTyping() {
+    if (!currentItem) return;
+    const answer = normalizeText(typedAnswer);
+    const correctWord = normalizeText(currentItem.word);
+    const altMeaning = normalizeText(currentItem.meaningVi);
+    const correct = answer === correctWord || answer === altMeaning;
+
+    setTypedFeedback({ correct, correctWord: currentItem.word, meaningVi: currentItem.meaningVi });
+    applyReview(currentItem, correct ? "good" : "again", "typing", correct, typedAnswer);
+
+    if (correct) {
+      setTimeout(() => {
+        setTypedAnswer("");
+        setTypedFeedback(null);
+      }, settings.typingRevealDelay || 800);
+    }
+  }
+
+  function startListeningPrompt() {
+    if (!currentItem) return;
+    speakText(currentItem.word, settings.voiceLang);
+  }
+
+  function exportData() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `english-vocab-backup-${TODAY()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imported = safeParse(event.target?.result, null);
+      if (!imported || !Array.isArray(imported.items)) {
+        setImportError("File không đúng định dạng JSON của app.");
+        return;
+      }
+      setImportError("");
+      setState(imported);
+    };
+    reader.readAsText(file);
+  }
+
+  function addQuickSampleDay() {
+    const nextDay = allDays.length ? Number(allDays[allDays.length - 1]) + 1 : 1;
+    const samples = [
+      {
+        word: "deadline",
+        meaningVi: "hạn chót",
+        phonetic: "/ˈdedlaɪn/",
+        partOfSpeech: "noun",
+        exampleEn: "We need to finish this before the deadline.",
+        exampleVi: "Chúng ta cần hoàn thành việc này trước hạn chót.",
+        synonyms: ["due date"],
+        antonyms: [],
+        collocations: ["meet the deadline", "tight deadline"],
+        tags: ["work"],
+        difficulty: 2,
+      },
+      {
+        word: "improve",
+        meaningVi: "cải thiện",
+        phonetic: "/ɪmˈpruːv/",
+        partOfSpeech: "verb",
+        exampleEn: "I want to improve my English every day.",
+        exampleVi: "Tôi muốn cải thiện tiếng Anh mỗi ngày.",
+        synonyms: ["enhance", "develop"],
+        antonyms: ["worsen"],
+        collocations: ["improve skills", "improve performance"],
+        tags: ["learning", "daily"],
+        difficulty: 2,
+      },
+      {
+        word: "confident",
+        meaningVi: "tự tin",
+        phonetic: "/ˈkɒnfɪdənt/",
+        partOfSpeech: "adjective",
+        exampleEn: "She feels more confident after practice.",
+        exampleVi: "Cô ấy cảm thấy tự tin hơn sau khi luyện tập.",
+        synonyms: ["self-assured"],
+        antonyms: ["nervous"],
+        collocations: ["feel confident", "confident speaker"],
+        tags: ["daily", "learning"],
+        difficulty: 1,
+      },
+    ].map((sample) => ({
+      id: crypto.randomUUID(),
+      day: nextDay,
+      ...sample,
+      notes: "Sample generated set",
+      createdAt: TODAY(),
+      learning: {
+        status: "new",
+        correctCount: 0,
+        wrongCount: 0,
+        streak: 0,
+        intervalDays: 0,
+        easeFactor: 2.5,
+        lastReviewedAt: null,
+        nextReviewAt: TODAY(),
+        mastery: 0,
+        lastGrade: null,
+      },
+    }));
+
+    setState((prev) => ({ ...prev, items: [...samples, ...prev.items] }));
+  }
+
+  function getQuizOptions(item) {
+    const pool = items.filter((entry) => entry.id !== item.id).slice(0, 8);
+    const options = [item.meaningVi, ...pool.map((entry) => entry.meaningVi)]
+      .filter(Boolean)
+      .slice(0, 4);
+    return [...new Set(options)].sort(() => Math.random() - 0.5);
+  }
+
+  const quizOptions = currentItem ? getQuizOptions(currentItem) : [];
+
+  return (
+    <div className={settings.darkMode ? "dark" : ""}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 text-slate-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-slate-100">
+        <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+          <AppHeader
+            darkMode={settings.darkMode}
+            setDarkMode={(value) => updateSettings({ darkMode: value })}
+            dueCount={dueItems.length}
+            totalWords={items.length}
+            masteredCount={masteredCount}
+          />
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+            <TabsList className="grid w-full grid-cols-2 gap-2 rounded-2xl bg-white/70 p-2 md:grid-cols-5 dark:bg-slate-900/70">
+              <TabsTrigger value="dashboard" className="rounded-xl">Dashboard</TabsTrigger>
+              <TabsTrigger value="study" className="rounded-xl">Study</TabsTrigger>
+              <TabsTrigger value="library" className="rounded-xl">Library</TabsTrigger>
+              <TabsTrigger value="stats" className="rounded-xl">Stats</TabsTrigger>
+              <TabsTrigger value="settings" className="rounded-xl">Settings</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard" className="mt-6 space-y-6">
+              <div className="grid gap-6 lg:grid-cols-3">
+                <Card className="rounded-3xl border-0 shadow-xl lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <Sparkles className="h-5 w-5" />
+                      Hôm nay nên học gì
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 md:grid-cols-3">
+                    <DashboardActionCard
+                      title="Ôn từ đến hạn"
+                      value={`${dueItems.length} từ`}
+                      desc="Ôn đúng lúc sắp quên để nhớ lâu hơn."
+                      icon={<CalendarDays className="h-5 w-5" />}
+                      onClick={() => {
+                        setStudySource("due");
+                        setActiveTab("study");
+                      }}
+                    />
+                    <DashboardActionCard
+                      title="Luyện từ khó"
+                      value={`${difficultItems.length} từ`}
+                      desc="Tập trung vào những từ bạn hay sai."
+                      icon={<Brain className="h-5 w-5" />}
+                      onClick={() => {
+                        setStudySource("difficult");
+                        setActiveTab("study");
+                      }}
+                    />
+                    <DashboardActionCard
+                      title="Học theo ngày"
+                      value={`${allDays.length} day set`}
+                      desc="Chọn Day 1, Day 2... để học theo lộ trình."
+                      icon={<BookOpen className="h-5 w-5" />}
+                      onClick={() => {
+                        setStudySource("day");
+                        setActiveTab("study");
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border-0 shadow-xl">
+                  <CardHeader>
+                    <CardTitle className="text-xl">Tiến độ hôm nay</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <MetricRow label="Lượt làm bài" value={todayLog.length} />
+                    <MetricRow label="Độ chính xác" value={`${accuracyToday}%`} />
+                    <MetricRow label="Từ đã thuộc" value={masteredCount} />
+                    <MetricRow label="Due còn lại" value={dueItems.length} />
+                    <div>
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <span>Mức hoàn thành</span>
+                        <span>{items.length ? Math.round((masteredCount / items.length) * 100) : 0}%</span>
+                      </div>
+                      <Progress value={items.length ? (masteredCount / items.length) * 100 : 0} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card className="rounded-3xl border-0 shadow-xl">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-xl">Từ khó nhất</CardTitle>
+                    <Badge variant="secondary">Auto tracked</Badge>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {difficultItems.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed p-6 text-sm text-slate-500 dark:text-slate-400">
+                        Chưa có từ khó. Khi bạn trả lời sai, app sẽ tự gom vào đây.
+                      </div>
+                    ) : (
+                      difficultItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between rounded-2xl border p-4 dark:border-slate-800">
+                          <div>
+                            <div className="font-semibold">{item.word}</div>
+                            <div className="text-sm text-slate-500 dark:text-slate-400">{item.meaningVi}</div>
+                          </div>
+                          <div className="text-right text-sm">
+                            <div className="font-medium text-red-500">Sai {item.learning?.wrongCount || 0} lần</div>
+                            <div className="text-slate-500">Mastery {item.learning?.mastery || 0}%</div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border-0 shadow-xl">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-xl">Quick actions</CardTitle>
+                    <Badge variant="outline">Personal workflow</Badge>
+                  </CardHeader>
+                  <CardContent className="grid gap-3">
+                    <Button className="justify-start rounded-2xl" onClick={() => setActiveTab("library")}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Thêm từ mới
+                    </Button>
+                    <Button variant="outline" className="justify-start rounded-2xl" onClick={addQuickSampleDay}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Tạo nhanh 1 bộ Day sample
+                    </Button>
+                    <Button variant="outline" className="justify-start rounded-2xl" onClick={exportData}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export backup JSON
+                    </Button>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="application/json"
+                        className="hidden"
+                        onChange={(e) => importData(e.target.files?.[0])}
+                      />
+                      <div className="flex items-center rounded-2xl border px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import backup JSON
+                      </div>
+                    </label>
+                    {importError && <div className="text-sm text-red-500">{importError}</div>}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="study" className="mt-6 space-y-6">
+              <Card className="rounded-3xl border-0 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-xl">Phiên học</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Mode</label>
+                    <Select value={studyMode} onValueChange={setStudyMode}>
+                      <SelectTrigger className="rounded-2xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="typing">Typing</SelectItem>
+                        <SelectItem value="flashcard">Flashcard</SelectItem>
+                        <SelectItem value="listening">Listening</SelectItem>
+                        <SelectItem value="quiz">Quiz</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Source</label>
+                    <Select value={studySource} onValueChange={setStudySource}>
+                      <SelectTrigger className="rounded-2xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="due">Due today</SelectItem>
+                        <SelectItem value="all">All words</SelectItem>
+                        <SelectItem value="difficult">Difficult</SelectItem>
+                        <SelectItem value="day">By day</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Day filter</label>
+                    <Select value={studyDay} onValueChange={setStudyDay}>
+                      <SelectTrigger className="rounded-2xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All days</SelectItem>
+                        {allDays.map((day) => (
+                          <SelectItem key={day} value={day}>{`Day ${day}`}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Cards / session</label>
+                    <Input
+                      type="number"
+                      min={5}
+                      max={100}
+                      value={settings.cardsPerSession}
+                      className="rounded-2xl"
+                      onChange={(e) => updateSettings({ cardsPerSession: Number(e.target.value || 20) })}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {!currentItem ? (
+                <Card className="rounded-3xl border-0 shadow-xl">
+                  <CardContent className="p-10 text-center">
+                    <Brain className="mx-auto mb-4 h-10 w-10 text-slate-400" />
+                    <div className="text-lg font-semibold">Không có từ nào trong phiên học này</div>
+                    <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                      Thử đổi Source, Day hoặc thêm từ vào Library.
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <motion.div key={currentItem.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+                  <Card className="rounded-3xl border-0 shadow-xl">
+                    <CardHeader className="flex flex-row items-center justify-between gap-4">
+                      <div>
+                        <CardTitle className="text-xl">{studyMode[0].toUpperCase() + studyMode.slice(1)} mode</CardTitle>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge variant="secondary">Day {currentItem.day}</Badge>
+                          <Badge variant="outline">{currentItem.partOfSpeech || "Unknown POS"}</Badge>
+                          <Badge variant="outline">{difficultyLabel(currentItem.difficulty)}</Badge>
+                          <Badge variant="outline">Mastery {currentItem.learning?.mastery || 0}%</Badge>
+                        </div>
+                      </div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        Card {studyIndex + 1} / {studyItems.length}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {studyMode === "typing" && (
+                        <div className="grid gap-6 lg:grid-cols-2">
+                          <div className="rounded-3xl border bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900">
+                            <div className="mb-3 text-sm text-slate-500 dark:text-slate-400">Gợi ý</div>
+                            <div className="text-2xl font-bold">{currentItem.meaningVi}</div>
+                            <div className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+                              Ví dụ: {currentItem.exampleEn || "No example"}
+                            </div>
+                            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                              Mục tiêu: gõ đúng từ tiếng Anh rồi nhấn Enter. Đúng thì ô gõ sẽ tự xóa để bạn gõ lại lần nữa.
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <Input
+                              ref={typingInputRef}
+                              value={typedAnswer}
+                              onChange={(e) => setTypedAnswer(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") submitTyping();
+                              }}
+                              className="h-14 rounded-2xl text-lg"
+                              placeholder="Type the English word or phrase..."
+                            />
+                            <div className="flex flex-wrap gap-3">
+                              <Button className="rounded-2xl" onClick={submitTyping}>Check</Button>
+                              <Button variant="outline" className="rounded-2xl" onClick={() => speakText(currentItem.exampleEn || currentItem.word, settings.voiceLang)}>
+                                <Volume2 className="mr-2 h-4 w-4" />
+                                Hear sentence
+                              </Button>
+                            </div>
+                            {typedFeedback && (
+                              <div className={`rounded-2xl p-4 text-sm ${typedFeedback.correct ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>
+                                {typedFeedback.correct
+                                  ? `Đúng. Từ chính xác là: ${typedFeedback.correctWord}`
+                                  : `Chưa đúng. Đáp án là: ${typedFeedback.correctWord} — ${typedFeedback.meaningVi}`}
+                              </div>
+                            )}
+                            <ReviewButtons item={currentItem} onReview={(grade) => applyReview(currentItem, grade, "manual-review", grade !== "again")} />
+                          </div>
+                        </div>
+                      )}
+
+                      {studyMode === "flashcard" && (
+                        <div className="space-y-6">
+                          <button
+                            className="w-full rounded-[2rem] border bg-gradient-to-br from-blue-600 to-indigo-600 p-10 text-left text-white shadow-xl transition hover:scale-[1.01]"
+                            onClick={() => setFlipped(!flipped)}
+                          >
+                            {!flipped ? (
+                              <div>
+                                <div className="text-sm opacity-80">Tap to reveal</div>
+                                <div className="mt-4 text-4xl font-bold">{currentItem.word}</div>
+                                <div className="mt-3 text-lg opacity-90">{currentItem.phonetic}</div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="text-sm opacity-80">Meaning + usage</div>
+                                <div className="mt-4 text-3xl font-bold">{currentItem.meaningVi}</div>
+                                <div className="mt-4 text-lg">{currentItem.exampleEn}</div>
+                                <div className="mt-2 opacity-90">{currentItem.exampleVi}</div>
+                              </div>
+                            )}
+                          </button>
+                          <div className="flex flex-wrap gap-3">
+                            <Button variant="outline" className="rounded-2xl" onClick={() => speakText(currentItem.word, settings.voiceLang)}>
+                              <Headphones className="mr-2 h-4 w-4" />
+                              Hear word
+                            </Button>
+                            <ReviewButtons item={currentItem} onReview={(grade) => applyReview(currentItem, grade, "flashcard", grade !== "again")} />
+                          </div>
+                        </div>
+                      )}
+
+                      {studyMode === "listening" && (
+                        <div className="grid gap-6 lg:grid-cols-2">
+                          <div className="rounded-3xl border bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900">
+                            <div className="text-sm text-slate-500 dark:text-slate-400">Nghe và đoán</div>
+                            <div className="mt-4 text-lg">Nhấn nút bên dưới để nghe từ. Sau đó gõ đáp án hoặc chọn tự chấm bằng nút review.</div>
+                            <div className="mt-6 flex gap-3">
+                              <Button className="rounded-2xl" onClick={startListeningPrompt}>
+                                <Volume2 className="mr-2 h-4 w-4" />
+                                Play audio
+                              </Button>
+                              <Button variant="outline" className="rounded-2xl" onClick={() => speakText(currentItem.exampleEn, settings.voiceLang)}>
+                                Hear sentence
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <Input
+                              value={typedAnswer}
+                              onChange={(e) => setTypedAnswer(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") submitTyping();
+                              }}
+                              className="h-14 rounded-2xl text-lg"
+                              placeholder="Type what you heard..."
+                            />
+                            <Button className="rounded-2xl" onClick={submitTyping}>Check</Button>
+                            {typedFeedback && (
+                              <div className={`rounded-2xl p-4 text-sm ${typedFeedback.correct ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>
+                                {typedFeedback.correct
+                                  ? `Đúng. ${typedFeedback.correctWord}`
+                                  : `Chưa đúng. Đáp án là ${typedFeedback.correctWord} — ${typedFeedback.meaningVi}`}
+                              </div>
+                            )}
+                            <ReviewButtons item={currentItem} onReview={(grade) => applyReview(currentItem, grade, "listening", grade !== "again")} />
+                          </div>
+                        </div>
+                      )}
+
+                      {studyMode === "quiz" && (
+                        <div className="space-y-6">
+                          <div className="rounded-3xl border bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-900">
+                            <div className="text-sm text-slate-500 dark:text-slate-400">Choose the correct meaning</div>
+                            <div className="mt-4 text-4xl font-bold">{currentItem.word}</div>
+                            <div className="mt-2 text-lg">{currentItem.phonetic}</div>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {quizOptions.map((option) => (
+                              <button
+                                key={option}
+                                className={`rounded-2xl border p-4 text-left transition ${quizSelected === option ? "border-blue-600 bg-blue-50 dark:bg-blue-950" : "hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"}`}
+                                onClick={() => setQuizSelected(option)}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-3">
+                            <Button
+                              className="rounded-2xl"
+                              onClick={() => {
+                                if (!quizSelected) return;
+                                const correct = quizSelected === currentItem.meaningVi;
+                                applyReview(currentItem, correct ? "good" : "again", "quiz", correct, quizSelected);
+                              }}
+                            >
+                              Submit quiz
+                            </Button>
+                            <ReviewButtons item={currentItem} onReview={(grade) => applyReview(currentItem, grade, "quiz-manual", grade !== "again")} />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-4 dark:border-slate-800">
+                        <div className="flex gap-3">
+                          <Button variant="outline" className="rounded-2xl" onClick={prevCard}>
+                            <ChevronLeft className="mr-2 h-4 w-4" />
+                            Prev
+                          </Button>
+                          <Button variant="outline" className="rounded-2xl" onClick={nextCard}>
+                            Next
+                            <ChevronRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                          Next review: {currentItem.learning?.nextReviewAt || "today"}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="library" className="mt-6 space-y-6">
+              <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+                <Card className="rounded-3xl border-0 shadow-xl">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-xl">Add / Edit word</CardTitle>
+                    {form.id && <Badge>Editing</Badge>}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+                      <Field label="Day">
+                        <Input type="number" min={1} value={form.day} onChange={(e) => setForm((p) => ({ ...p, day: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Word">
+                        <Input value={form.word} onChange={(e) => setForm((p) => ({ ...p, word: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Meaning (VI)">
+                        <Input value={form.meaningVi} onChange={(e) => setForm((p) => ({ ...p, meaningVi: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Phonetic">
+                        <Input value={form.phonetic} onChange={(e) => setForm((p) => ({ ...p, phonetic: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Part of speech">
+                        <Input value={form.partOfSpeech} onChange={(e) => setForm((p) => ({ ...p, partOfSpeech: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Difficulty (1-5)">
+                        <Input type="number" min={1} max={5} value={form.difficulty} onChange={(e) => setForm((p) => ({ ...p, difficulty: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Example EN">
+                        <Textarea value={form.exampleEn} onChange={(e) => setForm((p) => ({ ...p, exampleEn: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Example VI">
+                        <Textarea value={form.exampleVi} onChange={(e) => setForm((p) => ({ ...p, exampleVi: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Synonyms (comma separated)">
+                        <Input value={form.synonyms} onChange={(e) => setForm((p) => ({ ...p, synonyms: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Antonyms (comma separated)">
+                        <Input value={form.antonyms} onChange={(e) => setForm((p) => ({ ...p, antonyms: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Collocations (comma separated)">
+                        <Input value={form.collocations} onChange={(e) => setForm((p) => ({ ...p, collocations: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Tags (comma separated)">
+                        <Input value={form.tags} onChange={(e) => setForm((p) => ({ ...p, tags: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                      <Field label="Notes">
+                        <Textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="rounded-2xl" />
+                      </Field>
+                    </div>
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      <Button className="rounded-2xl" onClick={upsertWord}>
+                        <Check className="mr-2 h-4 w-4" />
+                        {form.id ? "Update word" : "Add word"}
+                      </Button>
+                      <Button variant="outline" className="rounded-2xl" onClick={() => setForm(initialForm)}>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Clear form
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border-0 shadow-xl">
+                  <CardHeader>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <CardTitle className="text-xl">Word library</CardTitle>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="relative">
+                          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                          <Input
+                            value={librarySearch}
+                            onChange={(e) => setLibrarySearch(e.target.value)}
+                            placeholder="Search word, meaning, example..."
+                            className="rounded-2xl pl-9"
+                          />
+                        </div>
+                        <Select value={libraryDayFilter} onValueChange={setLibraryDayFilter}>
+                          <SelectTrigger className="rounded-2xl"><SelectValue placeholder="Filter by day" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All days</SelectItem>
+                            {allDays.map((day) => (
+                              <SelectItem key={day} value={day}>{`Day ${day}`}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={libraryTagFilter} onValueChange={setLibraryTagFilter}>
+                          <SelectTrigger className="rounded-2xl"><SelectValue placeholder="Filter by tag" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All tags</SelectItem>
+                            {allTags.map((tag) => (
+                              <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {libraryItems.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                        Không có từ nào khớp với bộ lọc hiện tại.
+                      </div>
+                    ) : (
+                      libraryItems.map((item) => (
+                        <div key={item.id} className="rounded-3xl border p-4 dark:border-slate-800">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="text-xl font-bold">{item.word}</div>
+                                <Badge variant="secondary">Day {item.day}</Badge>
+                                {item.partOfSpeech && <Badge variant="outline">{item.partOfSpeech}</Badge>}
+                              </div>
+                              <div className="text-slate-600 dark:text-slate-300">{item.meaningVi}</div>
+                              {item.phonetic && <div className="text-sm text-slate-500 dark:text-slate-400">{item.phonetic}</div>}
+                              {item.exampleEn && (
+                                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm dark:bg-slate-900">
+                                  <div>{item.exampleEn}</div>
+                                  {item.exampleVi && <div className="mt-1 text-slate-500 dark:text-slate-400">{item.exampleVi}</div>}
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-2">
+                                {(item.tags || []).map((tag) => (
+                                  <Badge key={tag} variant="outline">#{tag}</Badge>
+                                ))}
+                              </div>
+                              <div className="grid gap-2 text-sm text-slate-500 dark:text-slate-400 md:grid-cols-2">
+                                <div>Correct: {item.learning?.correctCount || 0}</div>
+                                <div>Wrong: {item.learning?.wrongCount || 0}</div>
+                                <div>Next review: {item.learning?.nextReviewAt || TODAY()}</div>
+                                <div>Mastery: {item.learning?.mastery || 0}%</div>
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 gap-2">
+                              <Button variant="outline" size="icon" className="rounded-2xl" onClick={() => speakText(item.word, settings.voiceLang)}>
+                                <Volume2 className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="icon" className="rounded-2xl" onClick={() => editWord(item)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="icon" className="rounded-2xl" onClick={() => deleteWord(item.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="stats" className="mt-6 space-y-6">
+              <div className="grid gap-6 lg:grid-cols-3">
+                <Card className="rounded-3xl border-0 shadow-xl lg:col-span-2">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-xl">Accuracy timeline</CardTitle>
+                    <Select value={statsRange} onValueChange={setStatsRange}>
+                      <SelectTrigger className="w-32 rounded-2xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7">7 days</SelectItem>
+                        <SelectItem value="14">14 days</SelectItem>
+                        <SelectItem value="30">30 days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {rangeLog.map((entry) => (
+                        <div key={entry.date}>
+                          <div className="mb-2 flex items-center justify-between text-sm">
+                            <span>{entry.date}</span>
+                            <span>{entry.correct}/{entry.total} correct · {entry.accuracy}%</span>
+                          </div>
+                          <Progress value={entry.accuracy} />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border-0 shadow-xl">
+                  <CardHeader>
+                    <CardTitle className="text-xl">Overview</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <MetricRow label="Today attempts" value={todayLog.length} />
+                    <MetricRow label="Today accuracy" value={`${accuracyToday}%`} />
+                    <MetricRow label="Total due" value={dueItems.length} />
+                    <MetricRow label="Hard words" value={difficultItems.length} />
+                    <MetricRow label="Days in library" value={allDays.length} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="rounded-3xl border-0 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-xl">Frequently missed words</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {difficultItems.length === 0 ? (
+                    <div className="text-sm text-slate-500 dark:text-slate-400">No difficult words yet.</div>
+                  ) : (
+                    difficultItems.map((item) => (
+                      <div key={item.id} className="rounded-2xl border p-4 dark:border-slate-800">
+                        <div className="font-semibold">{item.word}</div>
+                        <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.meaningVi}</div>
+                        <div className="mt-3 flex justify-between text-sm">
+                          <span>Wrong: {item.learning?.wrongCount || 0}</span>
+                          <span>Correct: {item.learning?.correctCount || 0}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="settings" className="mt-6 space-y-6">
+              <Card className="rounded-3xl border-0 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="text-xl">Settings & data</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-4">
+                    <Field label="Voice language">
+                      <Select value={settings.voiceLang} onValueChange={(value) => updateSettings({ voiceLang: value })}>
+                        <SelectTrigger className="rounded-2xl"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="en-US">English (US)</SelectItem>
+                          <SelectItem value="en-GB">English (UK)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Typing clear delay (ms)">
+                      <Input
+                        type="number"
+                        value={settings.typingRevealDelay}
+                        onChange={(e) => updateSettings({ typingRevealDelay: Number(e.target.value || 800) })}
+                        className="rounded-2xl"
+                      />
+                    </Field>
+                    <div className="rounded-2xl border p-4 dark:border-slate-800">
+                      <label className="flex items-center justify-between gap-4">
+                        <div>
+                          <div className="font-medium">Auto speak in study</div>
+                          <div className="text-sm text-slate-500 dark:text-slate-400">Tự phát âm khi sang card mới ở Flashcard / Listening.</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={!!settings.autoSpeak}
+                          onChange={(e) => updateSettings({ autoSpeak: e.target.checked })}
+                          className="h-5 w-5 rounded"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Button className="w-full justify-start rounded-2xl" onClick={exportData}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export all data to JSON
+                    </Button>
+                    <label className="block cursor-pointer">
+                      <input
+                        type="file"
+                        accept="application/json"
+                        className="hidden"
+                        onChange={(e) => importData(e.target.files?.[0])}
+                      />
+                      <div className="flex items-center rounded-2xl border px-4 py-2 font-medium hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900">
+                        <FileUp className="mr-2 h-4 w-4" />
+                        Import JSON backup
+                      </div>
+                    </label>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="destructive" className="w-full justify-start rounded-2xl">
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Reset learning progress
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="rounded-3xl">
+                        <DialogHeader>
+                          <DialogTitle>Reset toàn bộ tiến độ học?</DialogTitle>
+                        </DialogHeader>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                          Thao tác này giữ nguyên thư viện từ nhưng xóa lịch ôn, số lần đúng/sai và session log.
+                        </div>
+                        <div className="mt-4 flex justify-end gap-3">
+                          <Button variant="outline" className="rounded-2xl">Cancel</Button>
+                          <Button variant="destructive" className="rounded-2xl" onClick={resetProgress}>Confirm reset</Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <div className="rounded-2xl border border-dashed p-4 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                      Gợi ý nâng cao: nếu muốn đồng bộ nhiều thiết bị, phần tiếp theo nên nối app này với Supabase hoặc Firebase để lưu items và learning progress lên cloud.
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-medium">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function MetricRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border px-4 py-3 dark:border-slate-800">
+      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="font-semibold">{value}</span>
+    </div>
+  );
+}
+
+function DashboardActionCard({ title, value, desc, icon, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-3xl border bg-gradient-to-br from-white to-slate-50 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:from-slate-900 dark:to-slate-950"
+    >
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg">
+        {icon}
+      </div>
+      <div className="text-lg font-semibold">{title}</div>
+      <div className="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">{value}</div>
+      <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">{desc}</div>
+    </button>
+  );
+}
+
+function ReviewButtons({ onReview }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {Object.entries(REVIEW_PRESETS).map(([key, preset]) => (
+        <Button key={key} variant={key === "again" ? "destructive" : "outline"} className="rounded-2xl" onClick={() => onReview(key)}>
+          {preset.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
